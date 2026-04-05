@@ -171,12 +171,12 @@
         </div>
         <div class="form-row">
           <label>Costo del proveedor (COP) *</label>
-          <input id="inputCosto" type="text" placeholder="Ej: $25.000" oninput="formatPrice(this); calcPrecioSugerido()">
+          <input id="inputCosto" type="text" placeholder="Ej: $25.000" oninput="calcPrecioSugerido()" onblur="formatPrice(this); calcPrecioSugerido()">
           <div class="price-hint" id="hintCosto"></div>
         </div>
         <div class="form-row">
           <label>Precio de venta (COP)</label>
-          <input id="inputPrecio" type="text" placeholder="Se calcula automáticamente" oninput="formatPrice(this); validarPrecio()">
+          <input id="inputPrecio" type="text" placeholder="Se calcula automáticamente" oninput="validarPrecio()" onblur="formatPrice(this); validarPrecio()">
           <div class="price-hint" id="hintPrecio"></div>
         </div>
       </div>
@@ -245,8 +245,14 @@ function parseCOP(str) {
 }
 
 function formatPrice(input) {
+  const pos = input.selectionStart;
   const raw = parseCOP(input.value);
-  if (raw > 0) input.value = formatCOP(raw);
+  if (raw > 0 && raw < 100000000) {
+    const formatted = formatCOP(raw);
+    if (input.value !== formatted) input.value = formatted;
+  } else if (raw === 0) {
+    input.value = '';
+  }
 }
 
 let precioSugeridoCalc = 0;
@@ -427,15 +433,36 @@ Devuelve SOLO el JSON.`;
           {inline_data:{mime_type: imageFile.type||'image/jpeg', data: imageBase64}},
           {text: prompt}
         ]}],
-        generationConfig:{temperature:0.3, maxOutputTokens:2000}
+        generationConfig:{temperature:0.3, maxOutputTokens:4000}
       })
     });
 
     clearInterval(stepInt);
     const data = await resp.json();
     const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
-    const clean = raw.replace(/```json|```/g,'').trim();
-    const d = JSON.parse(clean);
+    if (!raw) throw new Error('Gemini no devolvió respuesta. Intenta de nuevo.');
+    let clean = raw.replace(/```json|```/g,'').trim();
+    // Fix truncated JSON by finding last complete key
+    const firstBrace = clean.indexOf('{');
+    const lastBrace = clean.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      clean = clean.substring(firstBrace, lastBrace + 1);
+    }
+    let d;
+    try {
+      d = JSON.parse(clean);
+    } catch(parseErr) {
+      // Try to fix truncated JSON
+      try {
+        // Close any open strings and objects
+        let fixed = clean;
+        const opens = (fixed.match(/{/g)||[]).length - (fixed.match(/}/g)||[]).length;
+        for(let i=0;i<opens;i++) fixed += '}';
+        d = JSON.parse(fixed);
+      } catch(e2) {
+        throw new Error('Error al procesar la respuesta. Intenta de nuevo.');
+      }
+    }
 
     // Inject local calculations
     if (costoRaw) {
