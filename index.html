@@ -343,9 +343,8 @@ async function analizarPrenda() {
     if (si < steps.length) document.getElementById(steps[si])?.classList.add('active');
   }, 1600);
 
-  const GEMINI_KEY = 'AIzaSyAlnAYroNsts-rSxUjsDXTPHlQbQw9i8TU';
-  const MODEL = 'gemini-2.0-flash';
-  const URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${GEMINI_KEY}`;
+  // Llamada al proxy seguro de Netlify (la API key está protegida en el servidor)
+  const URL = '/.netlify/functions/gemini';
 
   const systemPrompt = `Eres TEXTIL GANADOR — experto en moda, e-commerce y publicidad digital para Colombia.
 
@@ -429,17 +428,16 @@ Devuelve SOLO el JSON.`;
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify({
-        contents:[{parts:[
-          {inline_data:{mime_type: imageFile.type||'image/jpeg', data: imageBase64}},
-          {text: prompt}
-        ]}],
-        generationConfig:{temperature:0.3, maxOutputTokens:4000}
+        prompt: prompt,
+        imageBase64: imageBase64,
+        imageType: imageFile.type || 'image/jpeg'
       })
     });
 
     clearInterval(stepInt);
     const data = await resp.json();
-    const raw = data?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    if (data.error) throw new Error(data.error);
+    const raw = data.text || '';
     if (!raw) throw new Error('Gemini no devolvió respuesta. Intenta de nuevo.');
     let clean = raw.replace(/```json|```/g,'').trim();
     // Fix truncated JSON by finding last complete key
