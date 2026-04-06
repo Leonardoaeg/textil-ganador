@@ -139,14 +139,14 @@
     <h1>Descubre si tu prenda<br><em>es ganadora</em> para pautar</h1>
     <p>Sube la foto, ingresa el costo y recibe el análisis completo con puntaje, precio sugerido, competencia y estrategia de pauta.</p>
   </div>
- 
+
   <div class="upload-zone" id="uploadZone">
     <input type="file" id="fileInput" accept="image/*">
     <div class="upload-icon">📸</div>
     <h3>Sube la foto de la prenda</h3>
     <p>Arrastra la imagen aquí o haz clic · JPG, PNG, WEBP</p>
   </div>
- 
+
   <div class="preview-wrap" id="previewWrap">
     <div class="preview-img"><img id="previewImg" src="" alt="prenda"></div>
     <div class="preview-info">
@@ -186,11 +186,11 @@
       </div>
     </div>
   </div>
- 
+
   <button class="btn-analyze" id="btnAnalizar" style="display:none" onclick="analizarPrenda()">
     <span>✨</span> Analizar prenda con IA
   </button>
- 
+
   <div class="loading" id="loading">
     <div class="spinner"></div>
     <div class="loading-steps">
@@ -201,12 +201,12 @@
       <span id="step5">📱 Generando estrategia de pauta y creativo...</span>
     </div>
   </div>
- 
+
   <div class="result" id="result"></div>
 </div>
- 
+
 <footer>Textil Ganador · Validador de prendas para publicidad online · Colombia 🇨🇴</footer>
- 
+
 <script>
 // ── PRICING ENGINE (based on Level Up calculator) ──────────────────
 // Fórmula derivada de la calculadora de contra-entrega:
@@ -219,14 +219,14 @@ const PARAMS = {
   cpa:      15000,  // costo publicidad por cliente COP
   minROI:   0.50    // ganancia mínima 50%
 };
- 
+
 function calcPrecioMinimo(costo) {
   if (!costo || costo <= 0) return 0;
   const {despacho, entrega, flete, cpa, minROI} = PARAMS;
   // precio = (1+minROI)*CPA/D*E + flete/E + costo
   return Math.ceil(((1 + minROI) * cpa + flete * despacho + costo * despacho * entrega) / (despacho * entrega));
 }
- 
+
 function calcROI(costo, precio) {
   if (!costo || !precio) return 0;
   const {despacho, entrega, flete, cpa} = PARAMS;
@@ -235,15 +235,15 @@ function calcROI(costo, precio) {
   const ganancia = ingresos - costos;
   return ganancia / cpa;
 }
- 
+
 function formatCOP(n) {
   return '$' + Math.round(n).toLocaleString('es-CO').replace(/,/g, '.');
 }
- 
+
 function parseCOP(str) {
   return parseInt((str || '').replace(/[^0-9]/g, '')) || 0;
 }
- 
+
 function formatPrice(input) {
   const pos = input.selectionStart;
   const raw = parseCOP(input.value);
@@ -254,9 +254,9 @@ function formatPrice(input) {
     input.value = '';
   }
 }
- 
+
 let precioSugeridoCalc = 0;
- 
+
 function calcPrecioSugerido() {
   const costo = parseCOP(document.getElementById('inputCosto').value);
   const hintC = document.getElementById('hintCosto');
@@ -274,7 +274,7 @@ function calcPrecioSugerido() {
     hintC.textContent = '';
   }
 }
- 
+
 function validarPrecio() {
   const costo = parseCOP(document.getElementById('inputCosto').value);
   const precio = parseCOP(document.getElementById('inputPrecio').value);
@@ -290,12 +290,12 @@ function validarPrecio() {
     hint.className = 'price-hint ok';
   }
 }
- 
+
 // ── FILE HANDLING ──────────────────────────────────────────────────
 let imageBase64 = '', imageFile = null;
 const fileInput = document.getElementById('fileInput');
 const uploadZone = document.getElementById('uploadZone');
- 
+
 uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag-over'); });
 uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag-over'));
 uploadZone.addEventListener('drop', e => {
@@ -304,7 +304,7 @@ uploadZone.addEventListener('drop', e => {
   if (f && f.type.startsWith('image/')) handleFile(f);
 });
 fileInput.addEventListener('change', e => { if (e.target.files[0]) handleFile(e.target.files[0]); });
- 
+
 function handleFile(file) {
   imageFile = file;
   const reader = new FileReader();
@@ -317,7 +317,7 @@ function handleFile(file) {
   };
   reader.readAsDataURL(file);
 }
- 
+
 // ── MAIN ANALYSIS ──────────────────────────────────────────────────
 async function analizarPrenda() {
   const btn = document.getElementById('btnAnalizar');
@@ -325,7 +325,7 @@ async function analizarPrenda() {
   document.getElementById('loading').classList.add('show');
   document.getElementById('result').classList.remove('show');
   document.getElementById('result').innerHTML = '';
- 
+
   const nombre   = document.getElementById('inputNombre').value;
   const cat      = document.getElementById('inputCat').value;
   const precioRaw= parseCOP(document.getElementById('inputPrecio').value);
@@ -334,7 +334,7 @@ async function analizarPrenda() {
   const precioSug= costoRaw > 0 ? calcPrecioMinimo(costoRaw) : 0;
   const roiActual= costoRaw && precioRaw ? calcROI(costoRaw, precioRaw) : null;
   const precioBajo = precioRaw > 0 && precioRaw < precioSug;
- 
+
   const steps = ['step1','step2','step3','step4','step5'];
   let si = 0;
   const stepInt = setInterval(() => {
@@ -342,34 +342,22 @@ async function analizarPrenda() {
     si++;
     if (si < steps.length) document.getElementById(steps[si])?.classList.add('active');
   }, 1600);
- 
+
   // Llamada al proxy seguro de Netlify (la API key está protegida en el servidor)
   const URL = '/api/gemini';
- 
-  const systemPrompt = `Eres TEXTIL GANADOR — experto en moda, e-commerce y publicidad digital para Colombia.
- 
-SISTEMA DE PESOS PONDERADOS (total máx=60.5 pts → normalizado a %):
-DOLOR/DESEO: 3 criterios × 1.5 pts = 4.5 pts
-OBLIGATORIAS: 5 criterios × 2.0 pts = 10.0 pts
-RECOMENDADAS: 7 criterios × 1.5 pts = 10.5 pts
-FASHIONISTAS: 10 criterios × 2.5 pts = 25.0 pts (41% del score — EL MÁS IMPORTANTE)
-POR CATEGORÍA: 7 criterios × 1.5 pts = 10.5 pts
- 
-CRITERIOS DOLOR/DESEO: 1.Dolor físico concreto 2.Inseguridad corporal/estética 3.Practicidad/versatilidad
-CRITERIOS OBLIGATORIAS: 4.Máx 3 tallas/única 5.Máx 2 colores neutros 6.Beneficio visible en video 7.Proveedor con fotos reales 8.No compite Shein/Temu
-CRITERIOS RECOMENDADAS: 9.Transforma visualmente 10.Público 30-60 años 11.Antes/después 15seg 12.Compra sin probársela 13.Genera comentarios 14.Ticket $40k-$120k 15.Margen mín $15k
-CRITERIOS FASHIONISTAS: 16.Corte único 17.Se ve costoso en video 18.Causa sensación 19.Versatilidad 3+ outfits 20.Favorece múltiples cuerpos 21.Color con criterio 22.Tendencia ganadora 23.Detalle diferenciador 24.Fotografiable 25.Experiencia premium
-CRITERIOS CATEGORÍA: adapta 7 criterios al tipo de prenda detectado
- 
-ESCALA: +85%=GANADOR 70-84%=FUERTE 55-69%=BUENO 40-54%=MEDIO -40%=NO_PAUTAR
- 
-INFORMACIÓN FINANCIERA EXTRA:
-${costoRaw ? `Costo proveedor: ${formatCOP(costoRaw)}` : ''}
-${precioRaw ? `Precio de venta ingresado: ${formatCOP(precioRaw)}` : ''}
-${precioSug ? `Precio mínimo calculado para 50% ROI: ${formatCOP(precioSug)}` : ''}
-${roiActual !== null ? `ROI con precio ingresado: ${(roiActual*100).toFixed(0)}%` : ''}
-${precioBajo ? '⚠️ ALERTA: El precio ingresado está por debajo del mínimo para 50% ROI' : ''}
- 
+
+  const systemPrompt = `Eres un experto en moda y e-commerce Colombia. Analiza esta prenda textil para venta online por Meta Ads y TikTok.
+
+PESOS: Dolor/Deseo(×1.5, 3 crit), Obligatorias(×2.0, 5 crit), Recomendadas(×1.5, 7 crit), Fashionistas(×2.5, 10 crit), Categoría(×1.5, 7 crit). Total máx=60.5pts→%.
+
+CRITERIOS DOLOR: 1.Dolor físico 2.Inseguridad corporal 3.Practicidad
+OBLIGATORIAS: 4.Máx 3 tallas 5.Máx 2 colores 6.Beneficio visible en video 7.Proveedor real 8.No Shein/Temu
+RECOMENDADAS: 9.Transforma visualmente 10.Público 30-60 años 11.Antes/después 15s 12.Compra sin probar 13.Genera reacciones 14.Ticket $40k-$120k 15.Margen mín $15k
+FASHIONISTAS: 16.Corte único 17.Se ve costoso 18.Causa sensación 19.Versatilidad 3+outfits 20.Multi-cuerpos 21.Color criterio 22.Tendencia ganadora 23.Detalle diferenciador 24.Fotografiable 25.Experiencia premium
+CATEGORÍA: 7 criterios según tipo de prenda detectado
+
+VEREDICTOS: +85%=GANADOR, 70-84%=FUERTE, 55-69%=BUENO, 40-54%=MEDIO, -40%=NO_PAUTAR
+
 Responde ÚNICAMENTE con JSON válido sin texto extra ni backticks:
 {
   "prenda":"nombre",
@@ -414,15 +402,15 @@ Responde ÚNICAMENTE con JSON válido sin texto extra ni backticks:
   "riesgos":["r1","r2","r3"],
   "veredicto_final":"2-3 líneas directas sobre si pautar o no"
 }`;
- 
+
   const prompt = `${systemPrompt}
- 
+
 Analiza esta prenda textil.
 ${nombre ? `Nombre: ${nombre}` : ''}
 ${cat ? `Categoría: ${cat}` : ''}
 ${contexto ? `Contexto: ${contexto}` : ''}
 Devuelve SOLO el JSON.`;
- 
+
   try {
     const resp = await fetch(URL, {
       method:'POST',
@@ -433,7 +421,7 @@ Devuelve SOLO el JSON.`;
         imageType: imageFile.type || 'image/jpeg'
       })
     });
- 
+
     clearInterval(stepInt);
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
@@ -461,7 +449,7 @@ Devuelve SOLO el JSON.`;
         throw new Error('Error al procesar la respuesta. Intenta de nuevo.');
       }
     }
- 
+
     // Inject local calculations
     if (costoRaw) {
       d.precio_sugerido_local = formatCOP(calcPrecioMinimo(costoRaw));
@@ -470,7 +458,7 @@ Devuelve SOLO el JSON.`;
       d.precio_ingresado = precioRaw ? formatCOP(precioRaw) : null;
       d.costo_ingresado = formatCOP(costoRaw);
     }
- 
+
     renderResult(d);
   } catch(err) {
     clearInterval(stepInt);
@@ -480,23 +468,23 @@ Devuelve SOLO el JSON.`;
     btn.disabled = false;
   }
 }
- 
+
 // ── RENDER ─────────────────────────────────────────────────────────
 function renderResult(d) {
   document.getElementById('loading').classList.remove('show');
- 
+
   const vColors = {GANADOR:'#14532D',FUERTE:'#166534',BUENO:'#1D4ED8',MEDIO:'#92400E',NO_PAUTAR:'#991B1B'};
   const vLabels = {GANADOR:'🥇 GANADOR — Pautar ya',FUERTE:'🔥 FUERTE — Muy viable',BUENO:'✅ BUENO — Viable',MEDIO:'⚠️ MEDIO — Con reservas',NO_PAUTAR:'❌ NO PAUTAR'};
   const cpPct = {'Alta':85,'Media':50,'Baja':20};
   const cpCls = {'Alta':'high','Media':'mid','Baja':'low'};
- 
+
   const allCrit = [
     ...(d.criterios?.dolor||[]).map((v,i)=>[v,['Dolor físico','Inseguridad corporal','Practicidad'][i],'dolor']),
     ...(d.criterios?.obligatorias||[]).map((v,i)=>[v,['Máx 3 tallas','Máx 2 colores','Beneficio en video','Proveedor real','No Shein/Temu'][i],'oblig']),
     ...(d.criterios?.recomendadas||[]).map((v,i)=>[v,['Transforma visualmente','Público 30-60','Antes/después 15s','Compra sin probar','Genera reacciones','Ticket $40k-$120k','Margen mín $15k'][i],'recom']),
     ...(d.criterios?.fashionistas||[]).map((v,i)=>[v,['Corte único','Se ve costoso','Causa sensación','Versatilidad','Multi-cuerpos','Color criterio','Tendencia','Detalle único','Fotografiable','Experiencia premium'][i],'fashion']),
   ];
- 
+
   // Price alert section
   const showAlert = d.precio_alerta_local || d.precio_alerta;
   const alertHTML = showAlert ? `
@@ -504,12 +492,12 @@ function renderResult(d) {
       <h4>⚠️ Precio por debajo del mínimo rentable</h4>
       <p>${d.precio_alerta_msg || `El precio ingresado está por debajo del mínimo para garantizar 50% de ROI. Precio sugerido: <strong>${d.precio_sugerido_local || d.precio_sugerido}</strong>`}</p>
     </div>` : '';
- 
+
   const roiHTML = d.roi_local !== null && d.roi_local !== undefined ? `
     <div style="margin-top:10px;padding:10px 14px;background:${d.roi_local >= 0.5 ? '#F0FFF4' : '#FEF2F2'};border-radius:9px;font-size:13px;border-left:3px solid ${d.roi_local >= 0.5 ? 'var(--green)' : 'var(--red)'}">
       <b>ROI con tu precio:</b> ${(d.roi_local*100).toFixed(0)}% ${d.roi_local >= 0.5 ? '✅ Supera el mínimo de 50%' : '⚠️ Por debajo del 50% mínimo recomendado'}
     </div>` : '';
- 
+
   const html = `
   <div class="score-card" style="background:${vColors[d.veredicto]||'#1E0533'}">
     <div class="score-circle">
@@ -522,7 +510,7 @@ function renderResult(d) {
       <p>📂 ${d.categoria} · ${d.descripcion_imagen}</p>
     </div>
   </div>
- 
+
   <div class="blocks-grid">
     <div class="block-card"><div class="bn">😣 Dolor</div><div class="bs">${(d.pts_dolor||0).toFixed(1)}</div><div class="bm">/ 4.5</div></div>
     <div class="block-card"><div class="bn">✅ Oblig.</div><div class="bs">${(d.pts_oblig||0).toFixed(1)}</div><div class="bm">/ 10.0</div></div>
@@ -530,9 +518,9 @@ function renderResult(d) {
     <div class="block-card fashion"><div class="bn">✨ Fashion</div><div class="bs">${(d.pts_fashion||0).toFixed(1)}</div><div class="bm">/ 25.0</div></div>
     <div class="block-card"><div class="bn">📂 Categ.</div><div class="bs">${(d.pts_categ||0).toFixed(1)}</div><div class="bm">/ 10.5</div></div>
   </div>
- 
+
   <div class="sections">
- 
+
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#F5F3FF">📋</div>
@@ -543,7 +531,7 @@ function renderResult(d) {
         <div class="crit-grid">${allCrit.map(([v,n,t])=>`<div class="crit-item"><div class="crit-dot ${v?'yes':'no'}">${v?'✓':'–'}</div><span style="${t==='fashion'?'font-weight:600':''}">${n}</span></div>`).join('')}</div>
       </div>
     </div>
- 
+
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#F0FFF4">💰</div>
@@ -563,7 +551,7 @@ function renderResult(d) {
         </div>
       </div>
     </div>
- 
+
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#FFF0F9">🎯</div>
@@ -579,7 +567,7 @@ function renderResult(d) {
         </div>
       </div>
     </div>
- 
+
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#FFF7ED">🏪</div>
@@ -609,7 +597,7 @@ function renderResult(d) {
         </div>
       </div>
     </div>
- 
+
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#F0F9FF">📱</div>
@@ -626,7 +614,7 @@ function renderResult(d) {
         </div>
       </div>
     </div>
- 
+
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#EEF2FF">🚀</div>
@@ -646,7 +634,7 @@ function renderResult(d) {
         </div>
       </div>
     </div>
- 
+
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#FEF2F2">⚠️</div>
@@ -657,7 +645,7 @@ function renderResult(d) {
         <div class="risk-list">${(d.riesgos||[]).map(r=>`<div class="risk-item">⚠️ ${r}</div>`).join('')}</div>
       </div>
     </div>
- 
+
     <div class="section" style="border-color:${vColors[d.veredicto]||'#5B0FBE'}">
       <div class="section-header" style="background:${vColors[d.veredicto]||'#5B0FBE'}" onclick="toggleSection(this)">
         <div class="si" style="background:rgba(255,255,255,.2)">🏆</div>
@@ -668,28 +656,28 @@ function renderResult(d) {
         <p style="font-size:14px;line-height:1.7;font-weight:500">${d.veredicto_final}</p>
       </div>
     </div>
- 
+
   </div>
- 
+
   <div class="cta-bar">
     <button class="btn-sec" onclick="resetForm()">← Nueva prenda</button>
     <button class="btn-pri" onclick="window.print()">⬇️ Guardar reporte</button>
   </div>`;
- 
+
   const resultEl = document.getElementById('result');
   resultEl.innerHTML = html;
   resultEl.classList.add('show');
   resultEl.scrollIntoView({behavior:'smooth',block:'start'});
   document.getElementById('btnAnalizar').disabled = false;
 }
- 
+
 function toggleSection(h) {
   const body = h.nextElementSibling;
   const tog = h.querySelector('.stg');
   body.classList.toggle('open');
   tog.style.transform = body.classList.contains('open') ? 'rotate(90deg)' : '';
 }
- 
+
 function resetForm() {
   document.getElementById('uploadZone').style.display = '';
   document.getElementById('previewWrap').classList.remove('show');
