@@ -396,14 +396,20 @@ Responde ÚNICAMENTE con JSON válido sin texto extra ni backticks:
     "tiendas":"Alta|Media|Baja","oportunidad":""
   },
   "creativo":{
-    "seg03":"gancho visual","seg38":"problema/antes",
-    "seg818":"solución/prenda en acción","seg1825":"resultado/reacción","seg2530":"CTA WhatsApp"
+    "seg03":"gancho visual 0-3 segundos",
+    "seg38":"problema o antes 3-8 segundos",
+    "seg818":"solución prenda en acción 8-18 segundos",
+    "seg1825":"resultado o reacción 18-25 segundos",
+    "seg2530":"CTA hacia WhatsApp 25-30 segundos"
   },
   "estrategia_pauta":{
     "plataforma":"Meta|TikTok|Híbrido",
-    "presupuesto_dia":"$X USD/día","dias_prueba":"X días",
-    "objetivo":"Mensajes|Alcance","formato":"Video UGC|Carrusel",
-    "angulo_a":"","angulo_b":""
+    "presupuesto_dia":"$X USD/día",
+    "dias_prueba":"X días",
+    "objetivo":"Mensajes a WhatsApp|Alcance|Tráfico",
+    "formato":"Video UGC|Carrusel|Imagen estática",
+    "angulo_a":"descripción del primer ángulo a probar",
+    "angulo_b":"descripción del segundo ángulo a probar"
   },
   "precio":{
     "sugerido":"${precioSug ? formatCOP(precioSug) : '$XX.XXX'}",
@@ -462,23 +468,31 @@ Devuelve SOLO el JSON.`;
     const data = await resp.json();
     if (data.error) throw new Error(data.error);
     const raw = data.text || '';
-    if (!raw) throw new Error('Gemini no devolvió respuesta. Intenta de nuevo.');
-    let clean = raw.replace(/```json|```/g,'').trim();
-    // Fix truncated JSON by finding last complete key
+    if (!raw) throw new Error('Sin respuesta de la IA. Intenta de nuevo.');
+    // Extract JSON from response - handle markdown blocks and extra text
+    let clean = raw;
+    // Remove markdown code blocks
+    clean = clean.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+    // Find the JSON object
     const firstBrace = clean.indexOf('{');
     const lastBrace = clean.lastIndexOf('}');
-    if (firstBrace !== -1 && lastBrace !== -1) {
-      clean = clean.substring(firstBrace, lastBrace + 1);
+    if (firstBrace === -1 || lastBrace === -1) {
+      throw new Error('Error al procesar la respuesta. Intenta de nuevo.');
     }
+    clean = clean.substring(firstBrace, lastBrace + 1).trim();
     let d;
     try {
       d = JSON.parse(clean);
     } catch(parseErr) {
-      // Try to fix truncated JSON
+      // Try aggressive JSON repair
       try {
-        // Close any open strings and objects
         let fixed = clean;
+        // Fix common issues
+        fixed = fixed.replace(/,\s*}/g, '}').replace(/,\s*]/g, ']');
+        fixed = fixed.replace(/([{,]\s*)(\w+)\s*:/g, '$1"$2":');
         const opens = (fixed.match(/{/g)||[]).length - (fixed.match(/}/g)||[]).length;
+        const aopens = (fixed.match(/\[/g)||[]).length - (fixed.match(/]/g)||[]).length;
+        for(let i=0;i<aopens;i++) fixed += ']';
         for(let i=0;i<opens;i++) fixed += '}';
         d = JSON.parse(fixed);
       } catch(e2) {
@@ -669,11 +683,11 @@ function renderResult(d) {
         <div style="margin-top:12px">
           <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Guión del video</div>
           <div class="timeline">
-            <div class="tl-row"><div class="tl-time">0-3s</div><div class="tl-text"><b>Gancho:</b> ${d.creativo?.seg03}</div></div>
-            <div class="tl-row"><div class="tl-time">3-8s</div><div class="tl-text"><b>Problema:</b> ${d.creativo?.seg38}</div></div>
-            <div class="tl-row"><div class="tl-time">8-18s</div><div class="tl-text"><b>Solución:</b> ${d.creativo?.seg818}</div></div>
-            <div class="tl-row"><div class="tl-time">18-25s</div><div class="tl-text"><b>Resultado:</b> ${d.creativo?.seg1825}</div></div>
-            <div class="tl-row"><div class="tl-time">25-30s</div><div class="tl-text"><b>CTA:</b> ${d.creativo?.seg2530}</div></div>
+            <div class="tl-row"><div class="tl-time">0-3s</div><div class="tl-text"><b>Gancho:</b> ${d.creativo?.seg03||d.creativo?.gancho||'—'}</div></div>
+            <div class="tl-row"><div class="tl-time">3-8s</div><div class="tl-text"><b>Problema:</b> ${d.creativo?.seg38||d.creativo?.problema||'—'}</div></div>
+            <div class="tl-row"><div class="tl-time">8-18s</div><div class="tl-text"><b>Solución:</b> ${d.creativo?.seg818||d.creativo?.solucion||'—'}</div></div>
+            <div class="tl-row"><div class="tl-time">18-25s</div><div class="tl-text"><b>Resultado:</b> ${d.creativo?.seg1825||d.creativo?.resultado||'—'}</div></div>
+            <div class="tl-row"><div class="tl-time">25-30s</div><div class="tl-text"><b>CTA:</b> ${d.creativo?.seg2530||d.creativo?.cta||'—'}</div></div>
           </div>
         </div>
       </div>
@@ -719,14 +733,14 @@ function renderResult(d) {
       </div>
       <div class="section-body">
         <div class="pauta-boxes">
-          <div class="pauta-box"><div class="pb-l">Plataforma</div><div class="pb-v">${d.estrategia_pauta?.plataforma}</div></div>
-          <div class="pauta-box"><div class="pb-l">Presupuesto/día</div><div class="pb-v">${d.estrategia_pauta?.presupuesto_dia}</div></div>
-          <div class="pauta-box"><div class="pb-l">Días prueba</div><div class="pb-v">${d.estrategia_pauta?.dias_prueba}</div></div>
+          <div class="pauta-box"><div class="pb-l">Plataforma</div><div class="pb-v">${d.estrategia_pauta?.plataforma||d.estrategia_pauta?.platform||'—'}</div></div>
+          <div class="pauta-box"><div class="pb-l">Presupuesto/día</div><div class="pb-v">${d.estrategia_pauta?.presupuesto_dia||d.estrategia_pauta?.presupuesto||'—'}</div></div>
+          <div class="pauta-box"><div class="pb-l">Días prueba</div><div class="pb-v">${d.estrategia_pauta?.dias_prueba||d.estrategia_pauta?.dias||'—'}</div></div>
         </div>
         <div class="cb">
-          <h4>Objetivo · Formato</h4><p>${d.estrategia_pauta?.objetivo} · ${d.estrategia_pauta?.formato}</p>
-          <h4>Ángulo A</h4><p>${d.estrategia_pauta?.angulo_a}</p>
-          <h4>Ángulo B</h4><p>${d.estrategia_pauta?.angulo_b}</p>
+          <h4>Objetivo · Formato</h4><p>${d.estrategia_pauta?.objetivo||'—'} · ${d.estrategia_pauta?.formato||d.formato_creativo?.mejor_formato||'—'}</p>
+          <h4>Ángulo A</h4><p>${d.estrategia_pauta?.angulo_a||d.estrategia_pauta?.angulo_A||'—'}</p>
+          <h4>Ángulo B</h4><p>${d.estrategia_pauta?.angulo_b||d.estrategia_pauta?.angulo_B||'—'}</p>
         </div>
       </div>
     </div>
