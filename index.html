@@ -346,15 +346,26 @@ async function analizarPrenda() {
   // Llamada al proxy seguro de Netlify (la API key está protegida en el servidor)
   const URL = '/api/gemini';
 
-  const systemPrompt = `Eres un experto en moda y e-commerce Colombia. Analiza esta prenda textil para venta online por Meta Ads y TikTok.
+  const systemPrompt = `Eres un experto SENIOR en moda, e-commerce y publicidad digital para Colombia y Latam. Tu análisis debe ser PRECISO y REAL — no inventes datos, analiza solo lo que ves en la imagen y lo que el usuario proporciona.
 
-PESOS: Dolor/Deseo(×1.5, 3 crit), Obligatorias(×2.0, 5 crit), Recomendadas(×1.5, 7 crit), Fashionistas(×2.5, 10 crit), Categoría(×1.5, 7 crit). Total máx=60.5pts→%.
+INSTRUCCIONES CRÍTICAS:
+1. Analiza la imagen con detalle: tipo de prenda, material visible, corte, colores, acabados, si se ve premium o genérico
+2. Busca datos REALES de competencia — si es una prenda muy común (fajas, leggings, bodies) en Colombia = competencia ALTA
+3. Si la competencia es ALTA en Meta + TikTok + tiendas físicas al mismo tiempo → veredicto máximo MEDIO, nunca GANADOR
+4. Sé honesto: no infles el puntaje, un producto mediocre debe quedar en MEDIO o BAJO
+5. El branding debe incluir nombre sugerido, eslogan y posicionamiento de marca
 
-CRITERIOS DOLOR: 1.Dolor físico 2.Inseguridad corporal 3.Practicidad
-OBLIGATORIAS: 4.Máx 3 tallas 5.Máx 2 colores 6.Beneficio visible en video 7.Proveedor real 8.No Shein/Temu
-RECOMENDADAS: 9.Transforma visualmente 10.Público 30-60 años 11.Antes/después 15s 12.Compra sin probar 13.Genera reacciones 14.Ticket $40k-$120k 15.Margen mín $15k
-FASHIONISTAS: 16.Corte único 17.Se ve costoso 18.Causa sensación 19.Versatilidad 3+outfits 20.Multi-cuerpos 21.Color criterio 22.Tendencia ganadora 23.Detalle diferenciador 24.Fotografiable 25.Experiencia premium
-CATEGORÍA: 7 criterios según tipo de prenda detectado
+PESOS PONDERADOS (total máx=60.5pts→%):
+- Dolor/Deseo(×1.5, 3 crit): dolor físico, inseguridad, practicidad
+- Obligatorias(×2.0, 5 crit): tallas, colores, beneficio visible, proveedor, no Shein
+- Recomendadas(×1.5, 7 crit): transforma, público 30-60, antes/después, compra sin probar, reacciones, ticket, margen
+- Fashionistas(×2.5, 10 crit): corte único, se ve costoso, causa sensación, versatilidad, multi-cuerpos, color criterio, tendencia, detalle único, fotografiable, experiencia premium
+- Categoría(×1.5, 7 crit): criterios específicos del tipo de prenda
+
+REGLA DE COMPETENCIA (OBLIGATORIA):
+- Si Meta=Alta Y TikTok=Alta Y Tiendas=Alta → score_pct máximo 54%, veredicto=MEDIO
+- Si Meta=Alta Y TikTok=Alta → score_pct máximo 69%, veredicto=BUENO
+- Si competencia general es baja en todas → puede llegar a GANADOR
 
 VEREDICTOS: +85%=GANADOR, 70-84%=FUERTE, 55-69%=BUENO, 40-54%=MEDIO, -40%=NO_PAUTAR
 
@@ -400,7 +411,32 @@ Responde ÚNICAMENTE con JSON válido sin texto extra ni backticks:
     "margen_est":"calcular","margen_pct":"calcular"
   },
   "riesgos":["r1","r2","r3"],
-  "veredicto_final":"2-3 líneas directas sobre si pautar o no"
+  "veredicto_final":"2-3 líneas directas y honestas sobre si pautar o no y por qué",
+  "branding":{
+    "nombre_sugerido":"nombre de marca para esta prenda",
+    "eslogan":"eslogan corto y poderoso",
+    "posicionamiento":"cómo posicionarla vs la competencia",
+    "hashtags":["#hashtag1","#hashtag2","#hashtag3"]
+  },
+  "datos_prenda":{
+    "tipo":"tipo exacto de prenda",
+    "material_visible":"qué material se ve en la imagen",
+    "corte":"descripción del corte",
+    "colores_disponibles":"colores que se ven o mencionan",
+    "nivel_calidad_visual":"Premium/Medio/Básico",
+    "diferencial_visual":"qué la hace diferente visualmente"
+  },
+  "angulos_ganadores":[
+    {"angulo":"nombre del ángulo","copy":"texto del anuncio","porque":"por qué funciona"},
+    {"angulo":"nombre del ángulo","copy":"texto del anuncio","porque":"por qué funciona"},
+    {"angulo":"nombre del ángulo","copy":"texto del anuncio","porque":"por qué funciona"}
+  ],
+  "formato_creativo":{
+    "mejor_formato":"Video UGC|Carrusel|Imagen estática",
+    "razon":"por qué ese formato funciona mejor para esta prenda",
+    "duracion_ideal":"duración ideal del video en segundos si aplica",
+    "tip_produccion":"consejo clave para grabar el creativo"
+  }
 }`;
 
   const prompt = `${systemPrompt}
@@ -499,6 +535,7 @@ function renderResult(d) {
     </div>` : '';
 
   const html = `
+  <!-- SCORE CARD -->
   <div class="score-card" style="background:${vColors[d.veredicto]||'#1E0533'}">
     <div class="score-circle">
       <div class="score-number">${d.score_pct}%</div>
@@ -511,6 +548,39 @@ function renderResult(d) {
     </div>
   </div>
 
+  <!-- DATOS REALES DE LA PRENDA -->
+  <div class="section" style="border-color:#5B0FBE">
+    <div class="section-header" onclick="toggleSection(this)" style="background:#F5F3FF">
+      <div class="si" style="background:#EDE9FE">👗</div>
+      <div class="st">Datos reales de la prenda</div>
+      <div class="stg">▸</div>
+    </div>
+    <div class="section-body open">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="background:#F5F3FF;padding:12px;border-radius:10px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">Tipo de prenda</div>
+          <div style="font-size:13px;font-weight:600">${d.datos_prenda?.tipo||d.categoria}</div>
+        </div>
+        <div style="background:#F5F3FF;padding:12px;border-radius:10px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">Material visible</div>
+          <div style="font-size:13px;font-weight:600">${d.datos_prenda?.material_visible||'—'}</div>
+        </div>
+        <div style="background:#F5F3FF;padding:12px;border-radius:10px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">Corte</div>
+          <div style="font-size:13px;font-weight:600">${d.datos_prenda?.corte||'—'}</div>
+        </div>
+        <div style="background:#F5F3FF;padding:12px;border-radius:10px">
+          <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">Calidad visual</div>
+          <div style="font-size:13px;font-weight:600">${d.datos_prenda?.nivel_calidad_visual||'—'}</div>
+        </div>
+      </div>
+      <div style="margin-top:10px;padding:10px 14px;background:#EDE9FE;border-radius:9px;font-size:13px">
+        <b>✨ Diferencial visual:</b> ${d.datos_prenda?.diferencial_visual||'—'}
+      </div>
+    </div>
+  </div>
+
+  <!-- BLOQUES PUNTAJE -->
   <div class="blocks-grid">
     <div class="block-card"><div class="bn">😣 Dolor</div><div class="bs">${(d.pts_dolor||0).toFixed(1)}</div><div class="bm">/ 4.5</div></div>
     <div class="block-card"><div class="bn">✅ Oblig.</div><div class="bs">${(d.pts_oblig||0).toFixed(1)}</div><div class="bm">/ 10.0</div></div>
@@ -521,17 +591,19 @@ function renderResult(d) {
 
   <div class="sections">
 
+    <!-- CRITERIOS -->
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#F5F3FF">📋</div>
-        <div class="st">Criterios evaluados (${allCrit.filter(c=>c[0]).length}/${allCrit.length} cumplidos)</div>
+        <div class="st">Criterios evaluados (${allCrit.filter(c=>c[0]).length}/${allCrit.length})</div>
         <div class="stg">▸</div>
       </div>
-      <div class="section-body open">
+      <div class="section-body">
         <div class="crit-grid">${allCrit.map(([v,n,t])=>`<div class="crit-item"><div class="crit-dot ${v?'yes':'no'}">${v?'✓':'–'}</div><span style="${t==='fashion'?'font-weight:600':''}">${n}</span></div>`).join('')}</div>
       </div>
     </div>
 
+    <!-- PRECIO -->
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#F0FFF4">💰</div>
@@ -540,41 +612,81 @@ function renderResult(d) {
       </div>
       <div class="section-body open">
         <div class="price-grid">
-          <div class="price-box"><div class="pl">Costo proveedor</div><div class="pv">${d.costo_ingresado || d.precio?.costo_est}</div></div>
-          <div class="price-box"><div class="pl">Precio mínimo 50% ROI</div><div class="pv">${d.precio_sugerido_local || d.precio_sugerido}</div></div>
-          <div class="price-box ${showAlert?'alert':'margin'}"><div class="pl">Tu precio</div><div class="pv">${d.precio_ingresado || d.precio?.sugerido}</div></div>
+          <div class="price-box"><div class="pl">Costo proveedor</div><div class="pv">${d.costo_ingresado||d.precio?.costo_est}</div></div>
+          <div class="price-box"><div class="pl">Precio mínimo 50% ROI</div><div class="pv">${d.precio_sugerido_local||d.precio_sugerido}</div></div>
+          <div class="price-box ${showAlert?'alert':'margin'}"><div class="pl">Tu precio</div><div class="pv">${d.precio_ingresado||d.precio?.sugerido}</div></div>
         </div>
         ${roiHTML}
         ${alertHTML}
-        <div style="margin-top:12px;font-size:12px;color:var(--muted)">
-          Fórmula: precio mínimo = costo + gastos fijos / (despacho 80% × entrega 80%) para garantir 50% ROI según calculadora Level Up Colombia
-        </div>
       </div>
     </div>
 
+    <!-- ÁNGULOS GANADORES -->
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#FFF0F9">🎯</div>
-        <div class="st">Ángulo de venta y público</div>
+        <div class="st">Ángulos de venta ganadores</div>
         <div class="stg">▸</div>
       </div>
       <div class="section-body open">
         <div class="cb">
           <h4>Público ideal</h4><p>${d.publico}</p>
           <h4>Dolor / deseo principal</h4><p>${d.dolor_principal}</p>
-          <h4>Gancho del anuncio</h4>
-          <p class="str">"${d.angulo_venta}"</p>
+        </div>
+        <div style="display:grid;gap:10px;margin-top:12px">
+          ${(d.angulos_ganadores||[]).map((a,i)=>`
+          <div style="background:#FFF0F9;border-radius:10px;padding:14px;border-left:3px solid var(--pink)">
+            <div style="font-size:11px;font-weight:700;color:var(--pink);text-transform:uppercase;margin-bottom:4px">Ángulo ${i+1}: ${a.angulo}</div>
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">"${a.copy}"</div>
+            <div style="font-size:12px;color:var(--muted)">💡 ${a.porque}</div>
+          </div>`).join('')}
         </div>
       </div>
     </div>
 
+    <!-- FORMATO DE CREATIVO -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="si" style="background:#F0F9FF">📱</div>
+        <div class="st">Formato de creativo recomendado</div>
+        <div class="stg">▸</div>
+      </div>
+      <div class="section-body open">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+          <div style="background:#F0F9FF;padding:12px;border-radius:10px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">Mejor formato</div>
+            <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800;color:var(--blue,#1D4ED8)">${d.formato_creativo?.mejor_formato||'—'}</div>
+          </div>
+          <div style="background:#F0F9FF;padding:12px;border-radius:10px;text-align:center">
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">Duración ideal</div>
+            <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:800">${d.formato_creativo?.duracion_ideal||'—'}</div>
+          </div>
+        </div>
+        <div class="cb">
+          <h4>¿Por qué ese formato?</h4><p>${d.formato_creativo?.razon||'—'}</p>
+          <h4>💡 Tip de producción</h4><p>${d.formato_creativo?.tip_produccion||'—'}</p>
+        </div>
+        <div style="margin-top:12px">
+          <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;margin-bottom:8px">Guión del video</div>
+          <div class="timeline">
+            <div class="tl-row"><div class="tl-time">0-3s</div><div class="tl-text"><b>Gancho:</b> ${d.creativo?.seg03}</div></div>
+            <div class="tl-row"><div class="tl-time">3-8s</div><div class="tl-text"><b>Problema:</b> ${d.creativo?.seg38}</div></div>
+            <div class="tl-row"><div class="tl-time">8-18s</div><div class="tl-text"><b>Solución:</b> ${d.creativo?.seg818}</div></div>
+            <div class="tl-row"><div class="tl-time">18-25s</div><div class="tl-text"><b>Resultado:</b> ${d.creativo?.seg1825}</div></div>
+            <div class="tl-row"><div class="tl-time">25-30s</div><div class="tl-text"><b>CTA:</b> ${d.creativo?.seg2530}</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COMPETENCIA -->
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#FFF7ED">🏪</div>
-        <div class="st">Competencia en Meta, TikTok y tiendas</div>
+        <div class="st">Análisis de competencia</div>
         <div class="stg">▸</div>
       </div>
-      <div class="section-body">
+      <div class="section-body open">
         <div class="comp-row">
           <div class="comp-label">Meta Ads</div>
           <div class="comp-bar"><div class="comp-fill ${cpCls[d.competencia?.meta]||'mid'}" style="width:${cpPct[d.competencia?.meta]||50}%"></div></div>
@@ -592,49 +704,34 @@ function renderResult(d) {
           <div class="comp-bar"><div class="comp-fill ${cpCls[d.competencia?.tiendas]||'mid'}" style="width:${cpPct[d.competencia?.tiendas]||50}%"></div></div>
           <div class="comp-tag ${cpCls[d.competencia?.tiendas]||'mid'}">${d.competencia?.tiendas}</div>
         </div>
-        <div style="margin-top:14px;padding:10px 14px;background:#F0FFF4;border-radius:9px;font-size:12px;border-left:3px solid var(--green)">
+        <div style="margin-top:12px;padding:10px 14px;background:#F0FFF4;border-radius:9px;font-size:12px;border-left:3px solid var(--green)">
           <b>🚪 Oportunidad:</b> ${d.competencia?.oportunidad}
         </div>
       </div>
     </div>
 
-    <div class="section">
-      <div class="section-header" onclick="toggleSection(this)">
-        <div class="si" style="background:#F0F9FF">📱</div>
-        <div class="st">Guión del creativo (video 30 seg)</div>
-        <div class="stg">▸</div>
-      </div>
-      <div class="section-body">
-        <div class="timeline">
-          <div class="tl-row"><div class="tl-time">0-3s</div><div class="tl-text"><b>Gancho:</b> ${d.creativo?.seg03}</div></div>
-          <div class="tl-row"><div class="tl-time">3-8s</div><div class="tl-text"><b>Problema:</b> ${d.creativo?.seg38}</div></div>
-          <div class="tl-row"><div class="tl-time">8-18s</div><div class="tl-text"><b>Solución:</b> ${d.creativo?.seg818}</div></div>
-          <div class="tl-row"><div class="tl-time">18-25s</div><div class="tl-text"><b>Resultado:</b> ${d.creativo?.seg1825}</div></div>
-          <div class="tl-row"><div class="tl-time">25-30s</div><div class="tl-text"><b>CTA:</b> ${d.creativo?.seg2530}</div></div>
-        </div>
-      </div>
-    </div>
-
+    <!-- ESTRATEGIA PAUTA -->
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#EEF2FF">🚀</div>
-        <div class="st">Estrategia de pauta recomendada</div>
+        <div class="st">Estrategia de pauta</div>
         <div class="stg">▸</div>
       </div>
       <div class="section-body">
         <div class="pauta-boxes">
           <div class="pauta-box"><div class="pb-l">Plataforma</div><div class="pb-v">${d.estrategia_pauta?.plataforma}</div></div>
           <div class="pauta-box"><div class="pb-l">Presupuesto/día</div><div class="pb-v">${d.estrategia_pauta?.presupuesto_dia}</div></div>
-          <div class="pauta-box"><div class="pb-l">Días de prueba</div><div class="pb-v">${d.estrategia_pauta?.dias_prueba}</div></div>
+          <div class="pauta-box"><div class="pb-l">Días prueba</div><div class="pb-v">${d.estrategia_pauta?.dias_prueba}</div></div>
         </div>
         <div class="cb">
           <h4>Objetivo · Formato</h4><p>${d.estrategia_pauta?.objetivo} · ${d.estrategia_pauta?.formato}</p>
-          <h4>Ángulo A — probar primero</h4><p>${d.estrategia_pauta?.angulo_a}</p>
-          <h4>Ángulo B — en paralelo</h4><p>${d.estrategia_pauta?.angulo_b}</p>
+          <h4>Ángulo A</h4><p>${d.estrategia_pauta?.angulo_a}</p>
+          <h4>Ángulo B</h4><p>${d.estrategia_pauta?.angulo_b}</p>
         </div>
       </div>
     </div>
 
+    <!-- RIESGOS -->
     <div class="section">
       <div class="section-header" onclick="toggleSection(this)">
         <div class="si" style="background:#FEF2F2">⚠️</div>
@@ -646,6 +743,35 @@ function renderResult(d) {
       </div>
     </div>
 
+    <!-- BRANDING -->
+    <div class="section">
+      <div class="section-header" onclick="toggleSection(this)">
+        <div class="si" style="background:#FFF0F9">✨</div>
+        <div class="st">Branding sugerido para la prenda</div>
+        <div class="stg">▸</div>
+      </div>
+      <div class="section-body">
+        <div style="display:grid;gap:10px">
+          <div style="background:var(--ink);padding:16px;border-radius:12px;color:#fff">
+            <div style="font-size:10px;opacity:.6;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Nombre sugerido</div>
+            <div style="font-family:'Syne',sans-serif;font-size:20px;font-weight:800">${d.branding?.nombre_sugerido||'—'}</div>
+          </div>
+          <div style="background:#F5F3FF;padding:14px;border-radius:10px;border-left:3px solid var(--violet)">
+            <div style="font-size:10px;color:var(--muted);font-weight:700;text-transform:uppercase;margin-bottom:4px">Eslogan</div>
+            <div style="font-size:14px;font-style:italic;font-weight:600">"${d.branding?.eslogan||'—'}"</div>
+          </div>
+          <div class="cb">
+            <h4>Posicionamiento</h4><p>${d.branding?.posicionamiento||'—'}</p>
+            <h4>Hashtags recomendados</h4>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+              ${(d.branding?.hashtags||[]).map(h=>`<span style="background:#EDE9FE;color:var(--violet);padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600">${h}</span>`).join('')}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VEREDICTO FINAL — AL ÚLTIMO -->
     <div class="section" style="border-color:${vColors[d.veredicto]||'#5B0FBE'}">
       <div class="section-header" style="background:${vColors[d.veredicto]||'#5B0FBE'}" onclick="toggleSection(this)">
         <div class="si" style="background:rgba(255,255,255,.2)">🏆</div>
@@ -659,7 +785,7 @@ function renderResult(d) {
 
   </div>
 
-  <div class="cta-bar">
+    <div class="cta-bar">
     <button class="btn-sec" onclick="resetForm()">← Nueva prenda</button>
     <button class="btn-pri" onclick="window.print()">⬇️ Guardar reporte</button>
   </div>`;
