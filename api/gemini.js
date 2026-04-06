@@ -7,7 +7,10 @@ export default async function handler(req, res) {
     var b = req.body;
     var apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'API key no configurada' });
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-pro-vision:generateContent?key=' + apiKey;
+
+    // Intentar con gemini-2.0-flash (v1beta) que es el modelo más nuevo
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=' + apiKey;
+    
     var response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
