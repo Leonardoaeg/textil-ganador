@@ -384,19 +384,47 @@ async function analizarPrenda() {
 
   const URL='/.netlify/functions/gemini';
 
-  const systemPrompt=`Eres un experto SENIOR en moda, e-commerce y publicidad digital para Colombia y Latam. ANALIZA CON PRECISIÓN Y HONESTIDAD — solo datos reales basados en la imagen y contexto dado.
+  const systemPrompt=`Eres un experto SENIOR en moda, e-commerce y publicidad digital para Colombia y Latam.
+ANALIZA CON PRECISIÓN Y HONESTIDAD — usa los datos reales de la imagen y la investigación de novedad.
 
-INSTRUCCIONES CRÍTICAS:
-1. Analiza la imagen con ojo experto: tipo exacto de prenda, material visible, corte, acabados, si se ve premium o genérico
-2. Los datos de competencia YA están investigados — úsalos exactamente como vienen en DATOS DE NOVEDAD
-3. REGLA DE COMPETENCIA OBLIGATORIA (no la ignores):
-   - 3 canales en Alta (Meta+TikTok+Tiendas) → score_pct MÁXIMO 45%, veredicto = NO_PAUTAR o MEDIO
-   - 2 canales en Alta (cualquier combinación) → score_pct MÁXIMO 62%, veredicto = BUENO máximo
-   - 1 canal en Alta → score_pct MÁXIMO 78%, veredicto = FUERTE máximo
-   - 0 canales en Alta → puede llegar a GANADOR
-   - BAJA competencia en todos → bonus +10 puntos al score final
-4. Sé honesto: una prenda muy competida NUNCA puede ser GANADOR aunque tenga buen diseño
-5. Los ángulos de venta deben ser ESPECÍFICOS para Colombia, basados en los datos reales encontrados
+SISTEMA DE PUNTUACIÓN DEL 1 AL 10 POR CRITERIO (total máx = 100 puntos):
+
+BLOQUE A — PRODUCTO (40 pts máx):
+A1. Resuelve dolor o inseguridad específica (0-10): 10=dolor físico claro, 5=deseo estético, 0=sin dolor
+A2. Diseño único y fashionista (0-10): 10=nunca visto, 5=diferente pero común, 0=genérico
+A3. Efecto WOW — genera sorpresa o deseo inmediato (0-10): 10=para el scroll, 0=pasa desapercibido
+A4. Calidad visual premium (0-10): 10=se ve muy costoso, 5=nivel medio, 0=se ve barato
+
+BLOQUE B — MERCADO (30 pts máx):
+B1. Novedad en el mercado colombiano (0-10): usa novedad_score exacto de la investigación
+B2. Ticket y margen viable (0-10): 10=margen>50% fácil, 5=margen ajustado, 0=inviable
+B3. Público claro y alcanzable en pauta (0-10): 10=público muy definido y activo en Meta, 0=muy difuso
+
+BLOQUE C — COMPETENCIA (30 pts máx — LA COMPETENCIA RESTA):
+C1. Competencia en Meta Ads (0-10): 10=casi ningún anunciante, 0=saturadísimo (INVIERTE LA ESCALA)
+C2. Competencia en TikTok (0-10): 10=poca competencia, 0=muchos videos iguales (INVIERTE)
+C3. Competencia en tiendas/MercadoLibre (0-10): 10=difícil conseguirla, 0=en todas partes (INVIERTE)
+
+FÓRMULA FINAL:
+score_total = A1+A2+A3+A4 + B1+B2+B3 + C1+C2+C3
+score_pct = score_total (ya es sobre 100)
+
+IMPORTANTE — Si el efecto WOW (A3) es muy alto (8-10) Y la competencia es alta,
+el WOW puede compensar PARCIALMENTE pero NO totalmente. Máximo compensación: +5 puntos.
+
+VEREDICTOS:
+85-100 = GANADOR (pautar inmediatamente)
+70-84  = FUERTE (muy viable)
+55-69  = BUENO (viable con buen creativo)
+40-54  = MEDIO (mercado saturado, riesgo alto)
+0-39   = NO_PAUTAR (descarta esta prenda)
+
+INSTRUCCIONES:
+1. Analiza la imagen con ojo experto: tipo exacto, material, corte, colores, detalles únicos
+2. Usa los datos de competencia YA investigados en DATOS DE NOVEDAD
+3. Sé completamente honesto — no infles puntajes
+4. Alta competencia en 2+ canales = penalización severa en C1/C2/C3
+5. Efecto WOW real = puntuación alta en A3 aunque haya competencia
 
 PESOS: Dolor(×1.5,3), Obligatorias(×2.0,5), Recomendadas(×1.5,7), Fashionistas(×2.5,10), Categoría(×1.5,7). Total máx=60.5→%
 VEREDICTOS: +85%=GANADOR, 70-84%=FUERTE, 55-69%=BUENO, 40-54%=MEDIO, -40%=NO_PAUTAR
@@ -416,19 +444,32 @@ Devuelve ÚNICAMENTE este JSON exacto sin texto extra ni markdown:
   "publico":"descripción específica del público ideal con edad y características",
   "dolor_principal":"el dolor o deseo específico que ataca",
   "criterios":{
-    "dolor":[true,true,false],
-    "obligatorias":[true,true,true,true,false],
-    "recomendadas":[true,true,false,true,true,false,true],
-    "fashionistas":[true,false,true,true,false,true,true,false,true,true],
-    "categoria":[true,true,false,true,true,false,true]
+    "A1_dolor":8,
+    "A1_razon":"por qué ese puntaje de dolor",
+    "A2_diseno":7,
+    "A2_razon":"por qué ese puntaje de diseño",
+    "A3_wow":9,
+    "A3_razon":"por qué ese puntaje de efecto WOW",
+    "A4_calidad":6,
+    "A4_razon":"por qué ese puntaje de calidad visual",
+    "B1_novedad":7,
+    "B1_razon":"basado en el score de novedad investigado",
+    "B2_ticket":8,
+    "B2_razon":"por qué ese puntaje de ticket/margen",
+    "B3_publico":7,
+    "B3_razon":"por qué ese puntaje de público",
+    "C1_comp_meta":4,
+    "C1_razon":"inverso — 10=sin competencia, 0=muy competido en Meta",
+    "C2_comp_tiktok":3,
+    "C2_razon":"inverso — 10=sin competencia, 0=muy competido en TikTok",
+    "C3_comp_tiendas":5,
+    "C3_razon":"inverso — 10=difícil conseguir, 0=en todas partes"
   },
-  "pts_dolor":3.0,
-  "pts_oblig":8.0,
-  "pts_recom":7.5,
-  "pts_fashion":17.5,
-  "pts_categ":7.5,
-  "pts_total":43.5,
-  "score_pct":72,
+  "pts_producto":30,
+  "pts_mercado":22,
+  "pts_competencia":12,
+  "pts_total":64,
+  "score_pct":64,
   "veredicto":"GANADOR",
   "competencia":{
     "meta":"Alta|Media|Baja — usa el dato exacto de saturacion_meta que viene en DATOS DE NOVEDAD",
@@ -473,7 +514,7 @@ Devuelve ÚNICAMENTE este JSON exacto sin texto extra ni markdown:
   },
   "estrategia_pauta":{
     "plataforma":"Meta Ads — mejor para público 30-60 años en Colombia que compra por impulso en Facebook/Instagram",
-    "presupuesto_dia":"$5 USD/día para iniciar, escalar a $10 si costo por mensaje baja de $1.5 USD",
+    "presupuesto_dia":"monto en PESOS COLOMBIANOS COP por día (ej: $25.000 COP/día para iniciar, escalar a $50.000 COP si el costo por mensaje baja de $6.000 COP)",
     "dias_prueba":"7 días mínimo para datos estadísticos válidos",
     "objetivo":"Mensajes a WhatsApp — SIEMPRE este objetivo en Colombia para contra entrega",
     "formato":"el formato más efectivo para esta prenda específica",
@@ -572,18 +613,69 @@ function renderResult(d) {
   const cpPct={'Alta':88,'Media':50,'Baja':18};
   const cpCls={'Alta':'high','Media':'mid','Baja':'low'};
 
-  const allCrit=[
-    ...(d.criterios?.dolor||[]).map((v,i)=>[v,['Dolor físico concreto','Inseguridad corporal/estética','Practicidad o versatilidad'][i],'dolor']),
-    ...(d.criterios?.obligatorias||[]).map((v,i)=>[v,['Máx. 3 tallas o talla única','Máx. 2 colores neutros','Beneficio visible en video','Proveedor con fotos reales','No compite con Shein/Temu'][i],'oblig']),
-    ...(d.criterios?.recomendadas||[]).map((v,i)=>[v,['Transforma visualmente','Público 30-60 años','Antes/después en 15 seg','Compra sin probársela','Genera reacciones/comentarios','Ticket $40k-$120k COP','Margen mín. $15k COP'][i],'recom']),
-    ...(d.criterios?.fashionistas||[]).map((v,i)=>[v,['Corte único o poco común','Se ve costoso en video','Causa sensación al usarlo','Versatilidad 1 prenda 3+ outfits','Favorece múltiples cuerpos','Color/estampado con criterio','Tendencia activa o atemporal','Detalle diferenciador único','Fotografiable/instagrameable','Experiencia de uso premium'][i],'fashion']),
+  // New 1-10 scoring system
+  const c = d.criterios || {};
+  const bloqueA = [
+    {label:'Dolor o inseguridad específica', score: c.A1_dolor||0, razon: c.A1_razon||'', color:'#5B0FBE'},
+    {label:'Diseño único y fashionista',      score: c.A2_diseno||0, razon: c.A2_razon||'', color:'#D4007A'},
+    {label:'Efecto WOW — para el scroll',     score: c.A3_wow||0,   razon: c.A3_razon||'', color:'#D4007A'},
+    {label:'Calidad visual premium',           score: c.A4_calidad||0, razon: c.A4_razon||'', color:'#5B0FBE'},
   ];
+  const bloqueB = [
+    {label:'Novedad en el mercado',     score: c.B1_novedad||0, razon: c.B1_razon||'', color:'#007A6E'},
+    {label:'Ticket y margen viable',    score: c.B2_ticket||0,  razon: c.B2_razon||'', color:'#007A6E'},
+    {label:'Público claro en pauta',    score: c.B3_publico||0, razon: c.B3_razon||'', color:'#007A6E'},
+  ];
+  const bloqueC = [
+    {label:'Poca competencia en Meta',          score: c.C1_comp_meta||0,    razon: c.C1_razon||'', color: c.C1_comp_meta>=7?'#156534':'#B91C1C'},
+    {label:'Poca competencia en TikTok',        score: c.C2_comp_tiktok||0,  razon: c.C2_razon||'', color: c.C2_comp_tiktok>=7?'#156534':'#B91C1C'},
+    {label:'Difícil conseguir en tiendas',      score: c.C3_comp_tiendas||0, razon: c.C3_razon||'', color: c.C3_comp_tiendas>=7?'#156534':'#B91C1C'},
+  ];
+
+  const ptsProd = (c.A1_dolor||0)+(c.A2_diseno||0)+(c.A3_wow||0)+(c.A4_calidad||0);
+  const ptsMerc = (c.B1_novedad||0)+(c.B2_ticket||0)+(c.B3_publico||0);
+  const ptsComp = (c.C1_comp_meta||0)+(c.C2_comp_tiktok||0)+(c.C3_comp_tiendas||0);
+  const ptsTotal = d.pts_total || (ptsProd+ptsMerc+ptsComp);
+  const scorePct = d.score_pct || ptsTotal;
+
+  function scoreDot(score) {
+    const color = score>=8?'#156534':score>=6?'#92600A':score>=4?'#D97706':'#B91C1C';
+    return `<div style="display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:${color};color:#fff;font-family:'Syne',sans-serif;font-size:12px;font-weight:800;flex-shrink:0">${score}</div>`;
+  }
+
+  function renderBloque(nombre, items, maxPts, color) {
+    const total = items.reduce((s,i)=>s+i.score,0);
+    return \`<div style="background:#fff;border:1.5px solid #E2DAF5;border-radius:14px;overflow:hidden;margin-bottom:10px">
+      <div style="padding:12px 16px;background:\${color}15;border-bottom:1.5px solid #E2DAF5;display:flex;align-items:center;justify-content:space-between">
+        <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:800;color:\${color}">\${nombre}</div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:\${color}">\${total}</div>
+          <div style="font-size:11px;color:#6B6680">/ \${maxPts} pts</div>
+        </div>
+      </div>
+      \${items.map(item=>\`
+      <div style="padding:10px 16px;border-bottom:1px solid #F0EBF8;display:flex;align-items:flex-start;gap:12px">
+        \${scoreDot(item.score)}
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:600;margin-bottom:2px">\${item.label}</div>
+          \${item.razon?'<div style="font-size:11px;color:#6B6680;line-height:1.5">'+item.razon+'</div>':''}
+        </div>
+        <div style="min-width:120px">
+          <div style="height:6px;background:#F0EBF8;border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:\${item.score*10}%;background:\${item.score>=8?'#156534':item.score>=6?'#D97706':'#B91C1C'};border-radius:3px;transition:width .8s ease"></div>
+          </div>
+        </div>
+      </div>\`).join('')}
+    </div>\`;
+  }
 
   // Calculate canales_alta from competition data
   if (d.competencia) {
     const alta = ['meta','tiktok','tiendas','mercadolibre'].filter(k => d.competencia[k]==='Alta').length;
     d.competencia.canales_alta = alta;
   }
+  // Override score with calculated one for consistency
+  const scorePctFinal = d.score_pct || (ptsProd + ptsMerc + ptsComp);
 
   const showAlert=d.precio_alerta_local||d.precio_alerta;
   const alertHTML=showAlert?`<div class="price-alert-box show"><h4>⚠️ Precio por debajo del mínimo rentable</h4><p>${d.precio_alerta_msg||`Tu precio está por debajo del mínimo para 50% ROI. Precio mínimo sugerido: <strong>${d.precio_sugerido_local||d.precio_sugerido}</strong>`}</p></div>`:'';
@@ -601,8 +693,9 @@ function renderResult(d) {
     </div>
     <div class="score-card ${vClass[d.veredicto]||''}" style="flex:1;margin-bottom:0">
       <div class="score-circle">
-        <div class="score-number">${d.score_pct}%</div>
-        <div class="score-label">PUNTAJE</div>
+        <div class="score-number">${scorePct}</div>
+      <div style="font-size:10px;opacity:.6;margin-top:1px">/ 100</div>
+        <div class="score-label">PUNTOS</div>
       </div>
       <div class="score-info">
         <div class="verdict-badge">${vLabels[d.veredicto]||d.veredicto}</div>
@@ -691,13 +784,23 @@ function renderResult(d) {
     </div>
   </div>` : ''}
 
-  <!-- BLOQUES PUNTAJE -->
-  <div class="blocks-grid">
-    <div class="block-card"><div class="bn">😣 Dolor</div><div class="bs">${(d.pts_dolor||0).toFixed(1)}</div><div class="bm">/ 4.5 pts</div></div>
-    <div class="block-card"><div class="bn">✅ Oblig.</div><div class="bs">${(d.pts_oblig||0).toFixed(1)}</div><div class="bm">/ 10.0 pts</div></div>
-    <div class="block-card"><div class="bn">🎯 Recom.</div><div class="bs">${(d.pts_recom||0).toFixed(1)}</div><div class="bm">/ 10.5 pts</div></div>
-    <div class="block-card fashion"><div class="bn">✨ Fashion</div><div class="bs">${(d.pts_fashion||0).toFixed(1)}</div><div class="bm">/ 25.0 pts</div></div>
-    <div class="block-card"><div class="bn">📂 Categ.</div><div class="bs">${(d.pts_categ||0).toFixed(1)}</div><div class="bm">/ 10.5 pts</div></div>
+  <!-- BLOQUES PUNTAJE — nuevo sistema 1-10 -->
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">
+    <div style="background:#fff;border:1.5px solid #E2DAF5;border-radius:13px;padding:14px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,.04)">
+      <div style="font-size:10px;font-weight:700;color:#5B0FBE;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🎯 Producto</div>
+      <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#5B0FBE">${ptsProd}</div>
+      <div style="font-size:11px;color:#6B6680">/ 40 pts</div>
+    </div>
+    <div style="background:#fff;border:1.5px solid #E2DAF5;border-radius:13px;padding:14px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,.04)">
+      <div style="font-size:10px;font-weight:700;color:#007A6E;text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">📊 Mercado</div>
+      <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:#007A6E">${ptsMerc}</div>
+      <div style="font-size:11px;color:#6B6680">/ 30 pts</div>
+    </div>
+    <div style="background:#fff;border:1.5px solid ${ptsComp<=15?'#FCA5A5':'#E2DAF5'};border-radius:13px;padding:14px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,.04)">
+      <div style="font-size:10px;font-weight:700;color:${ptsComp<=15?'#B91C1C':'#156534'};text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px">🏪 Competencia</div>
+      <div style="font-family:'Syne',sans-serif;font-size:26px;font-weight:800;color:${ptsComp<=15?'#B91C1C':'#156534'}">${ptsComp}</div>
+      <div style="font-size:11px;color:#6B6680">/ 30 pts</div>
+    </div>
   </div>
 
   <div class="sections">
@@ -784,7 +887,7 @@ function renderResult(d) {
     <div class="section-body">
       <div class="pauta-boxes">
         <div class="pauta-box"><div class="pb-l">Plataforma</div><div class="pb-v">${d.estrategia_pauta?.plataforma||'—'}</div></div>
-        <div class="pauta-box"><div class="pb-l">Presupuesto/día</div><div class="pb-v">${d.estrategia_pauta?.presupuesto_dia||'—'}</div></div>
+        <div class="pauta-box"><div class="pb-l">Presupuesto/día (COP)</div><div class="pb-v">${d.estrategia_pauta?.presupuesto_dia||'—'}</div></div>
         <div class="pauta-box"><div class="pb-l">Días prueba</div><div class="pb-v">${d.estrategia_pauta?.dias_prueba||'—'}</div></div>
       </div>
       <div class="cb">
@@ -897,15 +1000,25 @@ function renderResult(d) {
     </div>
   </div>
 
-  <!-- CRITERIOS -->
+  <!-- CRITERIOS DETALLADOS — nuevo sistema de puntos -->
   <div class="section">
     <div class="section-header" onclick="toggleSection(this)">
-      <div class="si" style="background:#F5F3FF">📋</div>
-      <div class="st">Criterios evaluados — ${allCrit.filter(c=>c[0]).length}/${allCrit.length} cumplidos</div>
+      <div class="si" style="background:#F5F3FF">📊</div>
+      <div class="st">Puntuación detallada — ${scorePct}/100 puntos</div>
       <div class="stg">▾</div>
     </div>
     <div class="section-body hidden">
-      <div class="crit-grid">${allCrit.map(([v,n,t])=>`<div class="crit-item"><div class="crit-dot ${v?'yes':'no'}">${v?'✓':'–'}</div><span style="${t==='fashion'?'font-weight:600;color:var(--pink)':''}">${n}</span></div>`).join('')}</div>
+      <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Cada criterio se califica del 1 al 10. En <b>Competencia</b> el puntaje es inverso: 10 = poca competencia (ventaja), 0 = muy competido (desventaja).</p>
+      ${renderBloque('🎯 BLOQUE A — Producto (máx 40 pts)', bloqueA, 40, '#5B0FBE')}
+      ${renderBloque('📊 BLOQUE B — Mercado (máx 30 pts)', bloqueB, 30, '#007A6E')}
+      ${renderBloque('🏪 BLOQUE C — Competencia (máx 30 pts — RESTA si está alta)', bloqueC, 30, ptsComp<=15?'#B91C1C':'#156534')}
+      <div style="background:var(--ink);border-radius:12px;padding:16px;margin-top:4px;display:flex;align-items:center;justify-content:space-between;color:#fff">
+        <div style="font-family:'Syne',sans-serif;font-size:15px;font-weight:700">PUNTAJE TOTAL</div>
+        <div style="display:flex;align-items:baseline;gap:6px">
+          <div style="font-family:'Syne',sans-serif;font-size:32px;font-weight:800;color:#FCD34D">${scorePct}</div>
+          <div style="font-size:14px;opacity:.7">/ 100</div>
+        </div>
+      </div>
     </div>
   </div>
 
