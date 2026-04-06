@@ -268,11 +268,11 @@ footer{text-align:center;padding:28px;color:var(--muted);font-size:12px;border-t
   <div class="loading" id="loading">
     <div class="spinner"></div>
     <div class="loading-steps">
-      <span id="step1" class="active">🔍 Analizando imagen y tipo de prenda...</span>
-      <span id="step2">⚖️ Aplicando sistema de pesos ponderados...</span>
-      <span id="step3">💰 Calculando precio óptimo y margen...</span>
-      <span id="step4">🏪 Evaluando competencia en Meta y TikTok...</span>
-      <span id="step5">📱 Generando estrategia de pauta y creativo...</span>
+      <span id="step1" class="active">🔍 Analizando imagen de la prenda en detalle...</span>
+      <span id="step2">🌐 Buscando en Pinterest, TikTok, Meta y MercadoLibre...</span>
+      <span id="step3">⚖️ Evaluando novedad y saturación del mercado...</span>
+      <span id="step4">💰 Calculando precio óptimo y margen COP...</span>
+      <span id="step5">📱 Generando estrategia de pauta y creativos...</span>
     </div>
   </div>
 
@@ -397,11 +397,12 @@ INSTRUCCIONES CRÍTICAS:
 PESOS: Dolor(×1.5,3), Obligatorias(×2.0,5), Recomendadas(×1.5,7), Fashionistas(×2.5,10), Categoría(×1.5,7). Total máx=60.5→%
 VEREDICTOS: +85%=GANADOR, 70-84%=FUERTE, 55-69%=BUENO, 40-54%=MEDIO, -40%=NO_PAUTAR
 
-CONTEXTO FINANCIERO:
-${costoRaw?`Costo proveedor: ${formatCOP(costoRaw)}`:''}
-${precioRaw?`Precio de venta: ${formatCOP(precioRaw)}`:''}
-${precioSug?`Precio mínimo 50% ROI: ${formatCOP(precioSug)}`:''}
-${precioBajo?'⚠️ PRECIO POR DEBAJO DEL MÍNIMO RENTABLE':''}
+CONTEXTO FINANCIERO (SIEMPRE en Pesos Colombianos COP):
+${costoRaw?`Costo proveedor: ${formatCOP(costoRaw)} COP`:''}
+${precioRaw?`Precio de venta ingresado: ${formatCOP(precioRaw)} COP`:''}
+${precioSug?`Precio mínimo para 50% ROI: ${formatCOP(precioSug)} COP`:''}
+${precioBajo?'⚠️ EL PRECIO ESTÁ POR DEBAJO DEL MÍNIMO RENTABLE — alertar al usuario':''}
+IMPORTANTE: Todos los precios en el JSON deben estar en pesos colombianos (COP) con formato $XX.XXX
 
 Devuelve ÚNICAMENTE este JSON exacto sin texto extra ni markdown:
 {
@@ -460,13 +461,13 @@ Devuelve ÚNICAMENTE este JSON exacto sin texto extra ni markdown:
     "tip_produccion":"consejo práctico específico para grabar"
   },
   "estrategia_pauta":{
-    "plataforma":"Meta|TikTok|Híbrido",
-    "presupuesto_dia":"$X USD/día",
-    "dias_prueba":"X días",
-    "objetivo":"Mensajes a WhatsApp|Alcance|Tráfico",
-    "formato":"Video UGC|Carrusel|Imagen estática",
-    "angulo_a":"primer ángulo específico a probar",
-    "angulo_b":"segundo ángulo específico a probar"
+    "plataforma":"Meta Ads — mejor para público 30-60 años en Colombia que compra por impulso en Facebook/Instagram",
+    "presupuesto_dia":"$5 USD/día para iniciar, escalar a $10 si costo por mensaje baja de $1.5 USD",
+    "dias_prueba":"7 días mínimo para datos estadísticos válidos",
+    "objetivo":"Mensajes a WhatsApp — SIEMPRE este objetivo en Colombia para contra entrega",
+    "formato":"el formato más efectivo para esta prenda específica",
+    "angulo_a":"copy exacto del primer ángulo ganador para el anuncio",
+    "angulo_b":"copy exacto del segundo ángulo ganador para el anuncio"
   },
   "riesgos":[
     "Riesgo específico 1 para esta prenda en Colombia",
@@ -497,7 +498,8 @@ Devuelve SOLO el JSON.`;
       body: JSON.stringify({
         prompt: prompt,
         imageBase64: imageBase64,
-        imageType: imageFile.type||'image/jpeg'
+        imageType: imageFile.type||'image/jpeg',
+        prendaNombre: nombre||'prenda textil'
       })
     });
     clearInterval(stepInt);
@@ -528,6 +530,18 @@ Devuelve SOLO el JSON.`;
       d.precio_ingresado=precioRaw?formatCOP(precioRaw):null;
       d.costo_ingresado=formatCOP(costoRaw);
     }
+    // Inject novedad data from server
+    if (data.novedad) {
+      d.novedad = data.novedad;
+      // Override competition data with real search data
+      if (!d.competencia) d.competencia = {};
+      if (data.novedad.saturacion_meta) d.competencia.meta = data.novedad.saturacion_meta;
+      if (data.novedad.saturacion_tiktok) d.competencia.tiktok = data.novedad.saturacion_tiktok;
+      if (data.novedad.saturacion_tiendas) d.competencia.tiendas = data.novedad.saturacion_tiendas;
+      if (data.novedad.descripcion_detallada && !d.datos_prenda) d.datos_prenda = {};
+      if (data.novedad.descripcion_detallada) d.datos_prenda.descripcion_completa = data.novedad.descripcion_detallada;
+    }
+    window._lastResult = d;
     renderResult(d);
   } catch(err) {
     clearInterval(stepInt);
@@ -559,15 +573,25 @@ function renderResult(d) {
   const roiHTML=d.roi_local!=null?`<div style="margin-top:10px;padding:10px 14px;background:${d.roi_local>=0.5?'#F0FFF4':'#FEF2F2'};border-radius:9px;font-size:13px;border-left:3px solid ${d.roi_local>=0.5?'var(--green)':'var(--red)'}"><b>ROI con tu precio:</b> ${(d.roi_local*100).toFixed(0)}% ${d.roi_local>=0.5?'✅ Supera el 50% mínimo':'⚠️ Bajo el 50% recomendado'}</div>`:'';
 
   const html=`
-  <div class="score-card ${vClass[d.veredicto]||''}">
-    <div class="score-circle">
-      <div class="score-number">${d.score_pct}%</div>
-      <div class="score-label">PUNTAJE</div>
+  <!-- HEADER CON IMAGEN -->
+  <div style="display:flex;gap:20px;margin-bottom:20px;align-items:stretch">
+    <div style="width:160px;min-width:160px;border-radius:16px;overflow:hidden;border:2px solid var(--border);box-shadow:0 4px 20px rgba(0,0,0,.12);position:relative">
+      <img src="${document.getElementById('previewImg').src}" style="width:100%;height:100%;object-fit:cover;display:block;min-height:200px">
+      <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.8));padding:10px 10px 8px;color:#fff">
+        <div style="font-size:10px;opacity:.8;margin-bottom:2px">${d.datos_prenda?.tipo||d.categoria}</div>
+        <div style="font-size:12px;font-weight:700;font-family:'Syne',sans-serif">${d.datos_prenda?.nivel_calidad_visual||''}</div>
+      </div>
     </div>
-    <div class="score-info">
-      <div class="verdict-badge">${vLabels[d.veredicto]||d.veredicto}</div>
-      <h2>${d.prenda||'Prenda analizada'}</h2>
-      <p>${d.descripcion_imagen||''}</p>
+    <div class="score-card ${vClass[d.veredicto]||''}" style="flex:1;margin-bottom:0">
+      <div class="score-circle">
+        <div class="score-number">${d.score_pct}%</div>
+        <div class="score-label">PUNTAJE</div>
+      </div>
+      <div class="score-info">
+        <div class="verdict-badge">${vLabels[d.veredicto]||d.veredicto}</div>
+        <h2>${d.prenda||'Prenda analizada'}</h2>
+        <p>${d.descripcion_imagen||''}</p>
+      </div>
     </div>
   </div>
 
@@ -592,6 +616,63 @@ function renderResult(d) {
       </div>
     </div>
   </div>
+
+  <!-- NOVEDAD EN INTERNET -->
+  ${d.novedad ? `
+  <div class="section" style="border-color:#7C3AED">
+    <div class="section-header" onclick="toggleSection(this)" style="background:linear-gradient(135deg,#5B0FBE,#7C3AED)">
+      <div class="si" style="background:rgba(255,255,255,.2)">🔍</div>
+      <div class="st" style="color:#fff">Novedad en el mercado — Investigado en internet</div>
+      <div class="stg" style="color:rgba(255,255,255,.7)">▾</div>
+    </div>
+    <div class="section-body">
+      <div style="display:flex;align-items:center;gap:20px;margin-bottom:16px">
+        <div style="text-align:center;background:linear-gradient(135deg,#5B0FBE,#D4007A);border-radius:50%;width:80px;height:80px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;flex-shrink:0">
+          <div style="font-family:'Syne',sans-serif;font-size:28px;font-weight:800;line-height:1">${d.novedad.novedad_score||'?'}</div>
+          <div style="font-size:9px;opacity:.8">/10 NOVEDAD</div>
+        </div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:18px;font-weight:800;margin-bottom:4px">
+            ${d.novedad.novedad_nivel==='Alta'?'✨ Producto Novedoso':d.novedad.novedad_nivel==='Media'?'📊 Novedad Media':'⚠️ Mercado Saturado'}
+          </div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.5">${d.novedad.novedad_razon||''}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+        <div class="dato-box">
+          <div class="dato-label">📘 Meta Ads</div>
+          <div class="dato-val" style="color:${d.novedad.saturacion_meta==='Baja'?'var(--green)':d.novedad.saturacion_meta==='Alta'?'var(--red)':'var(--gold)'}">
+            ${d.novedad.saturacion_meta==='Baja'?'🟢 Poca competencia':d.novedad.saturacion_meta==='Alta'?'🔴 Muy competido':'🟡 Competencia media'}
+          </div>
+        </div>
+        <div class="dato-box">
+          <div class="dato-label">🎵 TikTok</div>
+          <div class="dato-val" style="color:${d.novedad.saturacion_tiktok==='Baja'?'var(--green)':d.novedad.saturacion_tiktok==='Alta'?'var(--red)':'var(--gold)'}">
+            ${d.novedad.saturacion_tiktok==='Baja'?'🟢 Oportunidad viral':d.novedad.saturacion_tiktok==='Alta'?'🔴 Muy saturado':'🟡 Saturación media'}
+          </div>
+        </div>
+        <div class="dato-box">
+          <div class="dato-label">🛒 MercadoLibre</div>
+          <div class="dato-val" style="color:${d.novedad.saturacion_mercadolibre==='Baja'?'var(--green)':d.novedad.saturacion_mercadolibre==='Alta'?'var(--red)':'var(--gold)'}">
+            ${d.novedad.saturacion_mercadolibre==='Baja'?'🟢 Pocos vendedores':d.novedad.saturacion_mercadolibre==='Alta'?'🔴 Muchos vendedores':'🟡 Vendedores moderados'}
+          </div>
+        </div>
+        <div class="dato-box">
+          <div class="dato-label">📈 Tendencia</div>
+          <div class="dato-val" style="color:${d.novedad.tendencia==='Subiendo'?'var(--green)':d.novedad.tendencia==='Bajando'?'var(--red)':'var(--gold)'}">
+            ${d.novedad.tendencia==='Subiendo'?'🚀 En ascenso':d.novedad.tendencia==='Bajando'?'📉 Decayendo':d.novedad.tendencia==='En pico'?'⚡ En pico':'📊 Estable'}
+          </div>
+        </div>
+      </div>
+      ${d.novedad.tendencia_razon?`<div style="padding:10px 14px;background:#F5F3FF;border-radius:9px;font-size:13px;border-left:3px solid var(--violet);margin-bottom:12px"><b>Tendencia:</b> ${d.novedad.tendencia_razon}</div>`:''}
+      ${(d.novedad.referencias_encontradas||[]).length?`
+      <div style="font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Referencias encontradas en internet</div>
+      <div style="display:grid;gap:5px">
+        ${(d.novedad.referencias_encontradas||[]).map(r=>`<div style="font-size:12px;padding:6px 10px;background:#F8F5FF;border-radius:7px;border:1px solid var(--border)">🔗 ${r}</div>`).join('')}
+      </div>`:''}
+      ${d.novedad.recomendacion_novedad?`<div style="margin-top:12px;padding:12px 14px;background:#F0FFF4;border-radius:9px;font-size:13px;border-left:3px solid var(--green)"><b>💡 Recomendación:</b> ${d.novedad.recomendacion_novedad}</div>`:''}
+    </div>
+  </div>` : ''}
 
   <!-- BLOQUES PUNTAJE -->
   <div class="blocks-grid">
@@ -792,7 +873,8 @@ function renderResult(d) {
 
   <div class="cta-bar">
     <button class="btn-sec" onclick="resetForm()">← Nueva prenda</button>
-    <button class="btn-pri" onclick="window.print()">🖨️ Guardar / Imprimir reporte</button>
+    <button class="btn-sec" onclick="exportPDF()" style="flex:1.5">📄 Exportar PDF</button>
+    <button class="btn-pri" onclick="exportDoc()">📝 Exportar Word</button>
   </div>`;
 
   const resultEl=document.getElementById('result');
@@ -800,6 +882,143 @@ function renderResult(d) {
   resultEl.classList.add('show');
   resultEl.scrollIntoView({behavior:'smooth',block:'start'});
   document.getElementById('btnAnalizar').disabled=false;
+}
+
+function exportPDF() {
+  // Use browser print with PDF option
+  const style = document.createElement('style');
+  style.textContent = `
+    @media print {
+      header, .upload-zone, .preview-wrap, .btn-analyze, .cta-bar, .loading { display:none!important }
+      .result { display:block!important }
+      .section-body.hidden { display:block!important }
+      body { background:#fff; font-size:12px; }
+      .score-card { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+      .blocks-grid { print-color-adjust:exact; -webkit-print-color-adjust:exact; }
+    }
+  `;
+  document.head.appendChild(style);
+  window.print();
+  setTimeout(() => document.head.removeChild(style), 1000);
+}
+
+function exportDoc() {
+  const result = document.getElementById('result');
+  if (!result || !result.innerHTML) return;
+
+  // Build clean HTML for Word
+  const d = window._lastResult;
+  if (!d) { alert('Analiza una prenda primero'); return; }
+
+  const html = `
+<!DOCTYPE html><html><head>
+<meta charset="UTF-8">
+<style>
+  body{font-family:Arial,sans-serif;max-width:800px;margin:0 auto;padding:30px;color:#111}
+  h1{font-size:24px;margin-bottom:5px}
+  h2{font-size:18px;color:#5B0FBE;margin:20px 0 8px}
+  h3{font-size:14px;color:#666;text-transform:uppercase;letter-spacing:1px;margin:15px 0 5px}
+  p{margin:5px 0;line-height:1.6}
+  .score{font-size:48px;font-weight:bold;color:#14532D}
+  .badge{background:#14532D;color:#fff;padding:4px 12px;border-radius:4px;font-size:13px}
+  table{width:100%;border-collapse:collapse;margin:10px 0}
+  td,th{padding:8px 12px;border:1px solid #ddd;font-size:13px}
+  th{background:#f5f5f5;font-weight:600}
+  .angulo{background:#FFF0F9;border-left:4px solid #D4007A;padding:12px;margin:8px 0}
+  .riesgo{background:#FEF2F2;border-left:4px solid #B91C1C;padding:10px;margin:6px 0}
+  hr{border:none;border-top:1px solid #eee;margin:20px 0}
+</style>
+</head><body>
+<h1>REPORTE TEXTIL GANADOR</h1>
+<p style="color:#666;font-size:12px">Generado el ${new Date().toLocaleDateString('es-CO', {day:'2-digit',month:'long',year:'numeric'})}</p>
+<hr>
+<div class="score">${d.score_pct}% <span style="font-size:18px">${d.veredicto}</span></div>
+<h1>${d.prenda}</h1>
+<p>${d.descripcion_imagen}</p>
+<hr>
+<h2>📊 Puntaje por bloques</h2>
+<table>
+  <tr><th>Bloque</th><th>Puntaje</th><th>Máximo</th></tr>
+  <tr><td>😣 Dolor/Deseo</td><td>${(d.pts_dolor||0).toFixed(1)}</td><td>4.5</td></tr>
+  <tr><td>✅ Obligatorias</td><td>${(d.pts_oblig||0).toFixed(1)}</td><td>10.0</td></tr>
+  <tr><td>🎯 Recomendadas</td><td>${(d.pts_recom||0).toFixed(1)}</td><td>10.5</td></tr>
+  <tr><td>✨ Fashionistas</td><td>${(d.pts_fashion||0).toFixed(1)}</td><td>25.0</td></tr>
+  <tr><td>📂 Categoría</td><td>${(d.pts_categ||0).toFixed(1)}</td><td>10.5</td></tr>
+</table>
+<hr>
+<h2>👗 Datos de la prenda</h2>
+<table>
+  <tr><td><b>Tipo</b></td><td>${d.datos_prenda?.tipo||d.categoria}</td></tr>
+  <tr><td><b>Material</b></td><td>${d.datos_prenda?.material_visible||'—'}</td></tr>
+  <tr><td><b>Corte</b></td><td>${d.datos_prenda?.corte||'—'}</td></tr>
+  <tr><td><b>Calidad visual</b></td><td>${d.datos_prenda?.nivel_calidad_visual||'—'}</td></tr>
+  <tr><td><b>Diferencial</b></td><td>${d.datos_prenda?.diferencial_visual||'—'}</td></tr>
+</table>
+<h3>Público ideal</h3><p>${d.publico}</p>
+<h3>Dolor principal</h3><p>${d.dolor_principal}</p>
+<hr>
+<h2>💰 Precio y rentabilidad</h2>
+<table>
+  <tr><td><b>Costo proveedor</b></td><td>${d.costo_ingresado||'—'}</td></tr>
+  <tr><td><b>Precio mínimo 50% ROI</b></td><td>${d.precio_sugerido_local||'—'}</td></tr>
+  <tr><td><b>Tu precio</b></td><td>${d.precio_ingresado||'—'}</td></tr>
+</table>
+<hr>
+<h2>🎯 Ángulos de venta ganadores</h2>
+${(d.angulos_ganadores||[]).map((a,i)=>`<div class="angulo"><b>Ángulo ${i+1}: ${a.angulo}</b><br>"${a.copy}"<br><span style="color:#666;font-size:12px">💡 ${a.porque}</span></div>`).join('')}
+<hr>
+<h2>📱 Creativo recomendado</h2>
+<p><b>Formato:</b> ${d.formato_creativo?.mejor_formato||'—'} | <b>Duración:</b> ${d.formato_creativo?.duracion_ideal||'—'}</p>
+<p>${d.formato_creativo?.razon||''}</p>
+<p><b>Tip:</b> ${d.formato_creativo?.tip_produccion||''}</p>
+<table>
+  <tr><th>Tiempo</th><th>Contenido</th></tr>
+  <tr><td>0-3s Gancho</td><td>${d.creativo?.seg03||'—'}</td></tr>
+  <tr><td>3-8s Problema</td><td>${d.creativo?.seg38||'—'}</td></tr>
+  <tr><td>8-18s Solución</td><td>${d.creativo?.seg818||'—'}</td></tr>
+  <tr><td>18-25s Resultado</td><td>${d.creativo?.seg1825||'—'}</td></tr>
+  <tr><td>25-30s CTA</td><td>${d.creativo?.seg2530||'—'}</td></tr>
+</table>
+<hr>
+<h2>🚀 Estrategia de pauta</h2>
+<table>
+  <tr><td><b>Plataforma</b></td><td>${d.estrategia_pauta?.plataforma||'—'}</td></tr>
+  <tr><td><b>Presupuesto/día</b></td><td>${d.estrategia_pauta?.presupuesto_dia||'—'}</td></tr>
+  <tr><td><b>Días de prueba</b></td><td>${d.estrategia_pauta?.dias_prueba||'—'}</td></tr>
+  <tr><td><b>Objetivo</b></td><td>${d.estrategia_pauta?.objetivo||'—'}</td></tr>
+</table>
+<p><b>Ángulo A:</b> ${d.estrategia_pauta?.angulo_a||'—'}</p>
+<p><b>Ángulo B:</b> ${d.estrategia_pauta?.angulo_b||'—'}</p>
+<hr>
+<h2>🏪 Competencia</h2>
+<table>
+  <tr><th>Canal</th><th>Nivel</th><th>Razón</th></tr>
+  <tr><td>Meta Ads</td><td>${d.competencia?.meta||'—'}</td><td>${d.competencia?.meta_razon||''}</td></tr>
+  <tr><td>TikTok</td><td>${d.competencia?.tiktok||'—'}</td><td>${d.competencia?.tiktok_razon||''}</td></tr>
+  <tr><td>Tiendas físicas</td><td>${d.competencia?.tiendas||'—'}</td><td></td></tr>
+</table>
+<p><b>Oportunidad:</b> ${d.competencia?.oportunidad||'—'}</p>
+<hr>
+<h2>⚠️ Riesgos</h2>
+${(d.riesgos||[]).map(r=>`<div class="riesgo">${r}</div>`).join('')}
+<hr>
+<h2>✨ Branding</h2>
+<p><b style="font-size:20px">${d.branding?.nombre_sugerido||'—'}</b></p>
+<p><i>"${d.branding?.eslogan||'—'}"</i></p>
+<p><b>Posicionamiento:</b> ${d.branding?.posicionamiento||'—'}</p>
+<p><b>Hashtags:</b> ${(d.branding?.hashtags||[]).join(' ')}</p>
+<hr>
+<h2>🏆 Veredicto Final</h2>
+<p style="font-size:15px;line-height:1.7">${d.veredicto_final||'—'}</p>
+</body></html>`;
+
+  const blob = new Blob([html], {type:'application/msword'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `reporte-textil-${(d.prenda||'prenda').toLowerCase().replace(/\s+/g,'-')}.doc`;
+  a.click();
+  URL.revokeObjectURL(url);
 }
 
 function toggleSection(h) {
