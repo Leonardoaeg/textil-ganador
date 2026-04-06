@@ -1,30 +1,24 @@
-exports.handler = async function(event) {
-  var cors = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS'
-  };
+export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
 
-  if (event.httpMethod === 'OPTIONS') {
-    return { statusCode: 200, headers: cors, body: '' };
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
 
   try {
-    var body = JSON.parse(event.body);
+    var body = req.body;
     var prompt = body.prompt;
     var imageBase64 = body.imageBase64;
     var imageType = body.imageType || 'image/jpeg';
 
     var apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) {
-      return {
-        statusCode: 500,
-        headers: cors,
-        body: JSON.stringify({ error: 'API key no configurada en Netlify' })
-      };
+      return res.status(500).json({ error: 'API key no configurada' });
     }
 
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=' + apiKey;
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
 
     var requestBody = {
       contents: [{
@@ -48,11 +42,7 @@ exports.handler = async function(event) {
     var data = await response.json();
 
     if (data.error) {
-      return {
-        statusCode: 400,
-        headers: cors,
-        body: JSON.stringify({ error: data.error.message })
-      };
+      return res.status(400).json({ error: data.error.message });
     }
 
     var text = '';
@@ -60,17 +50,9 @@ exports.handler = async function(event) {
       text = data.candidates[0].content.parts[0].text || '';
     }
 
-    return {
-      statusCode: 200,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ text: text })
-    };
+    return res.status(200).json({ text: text });
 
   } catch (err) {
-    return {
-      statusCode: 500,
-      headers: { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' },
-      body: JSON.stringify({ error: err.message })
-    };
+    return res.status(500).json({ error: err.message });
   }
-};
+}
