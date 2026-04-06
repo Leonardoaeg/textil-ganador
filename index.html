@@ -388,11 +388,15 @@ async function analizarPrenda() {
 
 INSTRUCCIONES CRÍTICAS:
 1. Analiza la imagen con ojo experto: tipo exacto de prenda, material visible, corte, acabados, si se ve premium o genérico
-2. Evalúa competencia REAL: fajas, bodies, leggings y ropa interior son MUY competidos en Colombia
-3. REGLA DE COMPETENCIA: Si Meta=Alta Y TikTok=Alta Y Tiendas=Alta → score máximo 54%, veredicto MEDIO
-4. Si Meta=Alta Y TikTok=Alta → score máximo 69%, veredicto BUENO
-5. Sé honesto: no infles puntajes, un producto mediocre debe quedar MEDIO o BAJO
-6. Los ángulos de venta deben ser ESPECÍFICOS y REALES para Colombia, no genéricos
+2. Los datos de competencia YA están investigados — úsalos exactamente como vienen en DATOS DE NOVEDAD
+3. REGLA DE COMPETENCIA OBLIGATORIA (no la ignores):
+   - 3 canales en Alta (Meta+TikTok+Tiendas) → score_pct MÁXIMO 45%, veredicto = NO_PAUTAR o MEDIO
+   - 2 canales en Alta (cualquier combinación) → score_pct MÁXIMO 62%, veredicto = BUENO máximo
+   - 1 canal en Alta → score_pct MÁXIMO 78%, veredicto = FUERTE máximo
+   - 0 canales en Alta → puede llegar a GANADOR
+   - BAJA competencia en todos → bonus +10 puntos al score final
+4. Sé honesto: una prenda muy competida NUNCA puede ser GANADOR aunque tenga buen diseño
+5. Los ángulos de venta deben ser ESPECÍFICOS para Colombia, basados en los datos reales encontrados
 
 PESOS: Dolor(×1.5,3), Obligatorias(×2.0,5), Recomendadas(×1.5,7), Fashionistas(×2.5,10), Categoría(×1.5,7). Total máx=60.5→%
 VEREDICTOS: +85%=GANADOR, 70-84%=FUERTE, 55-69%=BUENO, 40-54%=MEDIO, -40%=NO_PAUTAR
@@ -427,12 +431,19 @@ Devuelve ÚNICAMENTE este JSON exacto sin texto extra ni markdown:
   "score_pct":72,
   "veredicto":"GANADOR",
   "competencia":{
-    "meta":"Alta",
-    "meta_razon":"explicación específica para Colombia",
-    "tiktok":"Media",
-    "tiktok_razon":"explicación específica",
-    "tiendas":"Alta",
-    "oportunidad":"descripción real de la oportunidad o riesgo"
+    "meta":"Alta|Media|Baja — usa el dato exacto de saturacion_meta que viene en DATOS DE NOVEDAD",
+    "meta_razon":"explicación específica basada en búsqueda real",
+    "meta_anunciantes":"estimado de anunciantes activos en Colombia",
+    "tiktok":"Alta|Media|Baja — usa saturacion_tiktok",
+    "tiktok_razon":"explicación específica basada en búsqueda real",
+    "tiktok_videos":"estimado de videos con esta prenda en Colombia",
+    "tiendas":"Alta|Media|Baja — usa saturacion_tiendas",
+    "tiendas_razon":"cuántas tiendas físicas y online la venden en Colombia",
+    "mercadolibre":"Alta|Media|Baja — usa saturacion_mercadolibre",
+    "mercadolibre_vendedores":"estimado de vendedores en MercadoLibre Colombia",
+    "canales_alta":0,
+    "impacto_score":"penalización aplicada al score por competencia: -X puntos",
+    "oportunidad":"descripción honesta de la oportunidad real basada en datos"
   },
   "datos_prenda":{
     "tipo":"tipo exacto",
@@ -567,6 +578,12 @@ function renderResult(d) {
     ...(d.criterios?.recomendadas||[]).map((v,i)=>[v,['Transforma visualmente','Público 30-60 años','Antes/después en 15 seg','Compra sin probársela','Genera reacciones/comentarios','Ticket $40k-$120k COP','Margen mín. $15k COP'][i],'recom']),
     ...(d.criterios?.fashionistas||[]).map((v,i)=>[v,['Corte único o poco común','Se ve costoso en video','Causa sensación al usarlo','Versatilidad 1 prenda 3+ outfits','Favorece múltiples cuerpos','Color/estampado con criterio','Tendencia activa o atemporal','Detalle diferenciador único','Fotografiable/instagrameable','Experiencia de uso premium'][i],'fashion']),
   ];
+
+  // Calculate canales_alta from competition data
+  if (d.competencia) {
+    const alta = ['meta','tiktok','tiendas','mercadolibre'].filter(k => d.competencia[k]==='Alta').length;
+    d.competencia.canales_alta = alta;
+  }
 
   const showAlert=d.precio_alerta_local||d.precio_alerta;
   const alertHTML=showAlert?`<div class="price-alert-box show"><h4>⚠️ Precio por debajo del mínimo rentable</h4><p>${d.precio_alerta_msg||`Tu precio está por debajo del mínimo para 50% ROI. Precio mínimo sugerido: <strong>${d.precio_sugerido_local||d.precio_sugerido}</strong>`}</p></div>`:'';
@@ -779,32 +796,103 @@ function renderResult(d) {
   </div>
 
   <!-- COMPETENCIA -->
-  <div class="section">
-    <div class="section-header" onclick="toggleSection(this)">
-      <div class="si" style="background:#FFF7ED">🏪</div>
-      <div class="st">Análisis de competencia</div>
+  <div class="section" style="border-color:${(d.competencia?.canales_alta>=2)?'var(--red)':(d.competencia?.canales_alta===0)?'var(--green)':'var(--gold)'}">
+    <div class="section-header" onclick="toggleSection(this)" style="background:${(d.competencia?.canales_alta>=2)?'#FEF2F2':(d.competencia?.canales_alta===0)?'#F0FFF4':'#FFFBEB'}">
+      <div class="si" style="background:${(d.competencia?.canales_alta>=2)?'#FEE2E2':(d.competencia?.canales_alta===0)?'#DCFCE7':'#FEF3C7'}">🏪</div>
+      <div class="st">Competencia — ${(d.competencia?.canales_alta>=3)?'⚠️ ALTAMENTE SATURADO':(d.competencia?.canales_alta>=2)?'⚠️ MUY COMPETIDO':(d.competencia?.canales_alta===1)?'📊 COMPETENCIA MODERADA':'✅ MERCADO CON OPORTUNIDAD'}</div>
       <div class="stg">▾</div>
     </div>
     <div class="section-body">
-      <div class="comp-row">
-        <div class="comp-label">Meta Ads</div>
-        <div class="comp-bar"><div class="comp-fill ${cpCls[d.competencia?.meta]||'mid'}" style="width:${cpPct[d.competencia?.meta]||50}%"></div></div>
-        <div class="comp-tag ${cpCls[d.competencia?.meta]||'mid'}">${d.competencia?.meta||'—'}</div>
+      <!-- ALERTA COMPETENCIA -->
+      ${(d.competencia?.canales_alta>=2)?`
+      <div style="background:#FEF2F2;border:1.5px solid #FCA5A5;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:24px;flex-shrink:0">🚨</div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--red);margin-bottom:4px">
+            ${d.competencia?.canales_alta>=3?'Prenda altamente saturada — pautar es de alto riesgo':'Prenda muy competida — necesitas diferencial claro'}
+          </div>
+          <div style="font-size:12px;color:#7F1D1D;line-height:1.5">${d.competencia?.impacto_score||'La alta competencia reduce el puntaje significativamente. Sin un ángulo muy diferenciado, el CAC será alto y el ROI bajo.'}</div>
+        </div>
+      </div>`:
+      (d.competencia?.canales_alta===0)?`
+      <div style="background:#F0FFF4;border:1.5px solid #86EFAC;border-radius:10px;padding:14px 16px;margin-bottom:16px;display:flex;gap:12px;align-items:flex-start">
+        <div style="font-size:24px;flex-shrink:0">🚀</div>
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:14px;font-weight:800;color:var(--green);margin-bottom:4px">Baja competencia — ventana de oportunidad abierta</div>
+          <div style="font-size:12px;color:#14532D;line-height:1.5">Pocos competidores activos en los canales principales. Momento ideal para entrar y posicionarte antes de que se sature.</div>
+        </div>
+      </div>`:''}
+
+      <!-- MÉTRICAS POR CANAL -->
+      <div style="display:grid;gap:12px">
+
+        <!-- META -->
+        <div style="border:1.5px solid ${cpCls[d.competencia?.meta]==='high'?'#FCA5A5':cpCls[d.competencia?.meta]==='low'?'#86EFAC':'#FCD34D'};border-radius:12px;padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">📘</span>
+              <div>
+                <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">Meta Ads Colombia</div>
+                ${d.competencia?.meta_anunciantes?`<div style="font-size:11px;color:var(--muted)">${d.competencia.meta_anunciantes}</div>`:''}
+              </div>
+            </div>
+            <div class="comp-tag ${cpCls[d.competencia?.meta]||'mid'}" style="font-size:12px;padding:4px 12px">${d.competencia?.meta||'—'}</div>
+          </div>
+          <div class="comp-bar" style="height:8px;margin-bottom:8px"><div class="comp-fill ${cpCls[d.competencia?.meta]||'mid'}" style="width:${cpPct[d.competencia?.meta]||50}%"></div></div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5">${d.competencia?.meta_razon||''}</div>
+        </div>
+
+        <!-- TIKTOK -->
+        <div style="border:1.5px solid ${cpCls[d.competencia?.tiktok]==='high'?'#FCA5A5':cpCls[d.competencia?.tiktok]==='low'?'#86EFAC':'#FCD34D'};border-radius:12px;padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">🎵</span>
+              <div>
+                <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">TikTok Colombia</div>
+                ${d.competencia?.tiktok_videos?`<div style="font-size:11px;color:var(--muted)">${d.competencia.tiktok_videos}</div>`:''}
+              </div>
+            </div>
+            <div class="comp-tag ${cpCls[d.competencia?.tiktok]||'mid'}" style="font-size:12px;padding:4px 12px">${d.competencia?.tiktok||'—'}</div>
+          </div>
+          <div class="comp-bar" style="height:8px;margin-bottom:8px"><div class="comp-fill ${cpCls[d.competencia?.tiktok]||'mid'}" style="width:${cpPct[d.competencia?.tiktok]||50}%"></div></div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5">${d.competencia?.tiktok_razon||''}</div>
+        </div>
+
+        <!-- MERCADOLIBRE -->
+        <div style="border:1.5px solid ${cpCls[d.competencia?.mercadolibre]==='high'?'#FCA5A5':cpCls[d.competencia?.mercadolibre]==='low'?'#86EFAC':'#FCD34D'};border-radius:12px;padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">🛒</span>
+              <div>
+                <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">MercadoLibre Colombia</div>
+                ${d.competencia?.mercadolibre_vendedores?`<div style="font-size:11px;color:var(--muted)">${d.competencia.mercadolibre_vendedores}</div>`:''}
+              </div>
+            </div>
+            <div class="comp-tag ${cpCls[d.competencia?.mercadolibre]||'mid'}" style="font-size:12px;padding:4px 12px">${d.competencia?.mercadolibre||'—'}</div>
+          </div>
+          <div class="comp-bar" style="height:8px;margin-bottom:8px"><div class="comp-fill ${cpCls[d.competencia?.mercadolibre]||'mid'}" style="width:${cpPct[d.competencia?.mercadolibre]||50}%"></div></div>
+          <div style="font-size:12px;color:var(--muted);line-height:1.5">${d.competencia?.tiendas_razon||''}</div>
+        </div>
+
+        <!-- TIENDAS FÍSICAS -->
+        <div style="border:1.5px solid ${cpCls[d.competencia?.tiendas]==='high'?'#FCA5A5':cpCls[d.competencia?.tiendas]==='low'?'#86EFAC':'#FCD34D'};border-radius:12px;padding:14px">
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+            <div style="display:flex;align-items:center;gap:8px">
+              <span style="font-size:18px">🏬</span>
+              <div>
+                <div style="font-family:'Syne',sans-serif;font-size:13px;font-weight:700">Tiendas físicas Colombia</div>
+              </div>
+            </div>
+            <div class="comp-tag ${cpCls[d.competencia?.tiendas]||'mid'}" style="font-size:12px;padding:4px 12px">${d.competencia?.tiendas||'—'}</div>
+          </div>
+          <div class="comp-bar" style="height:8px;margin-bottom:8px"><div class="comp-fill ${cpCls[d.competencia?.tiendas]||'mid'}" style="width:${cpPct[d.competencia?.tiendas]||50}%"></div></div>
+        </div>
+
       </div>
-      <div style="font-size:12px;color:var(--muted);margin:-2px 0 12px 122px">${d.competencia?.meta_razon||''}</div>
-      <div class="comp-row">
-        <div class="comp-label">TikTok</div>
-        <div class="comp-bar"><div class="comp-fill ${cpCls[d.competencia?.tiktok]||'mid'}" style="width:${cpPct[d.competencia?.tiktok]||50}%"></div></div>
-        <div class="comp-tag ${cpCls[d.competencia?.tiktok]||'mid'}">${d.competencia?.tiktok||'—'}</div>
-      </div>
-      <div style="font-size:12px;color:var(--muted);margin:-2px 0 12px 122px">${d.competencia?.tiktok_razon||''}</div>
-      <div class="comp-row">
-        <div class="comp-label">Tiendas físicas</div>
-        <div class="comp-bar"><div class="comp-fill ${cpCls[d.competencia?.tiendas]||'mid'}" style="width:${cpPct[d.competencia?.tiendas]||50}%"></div></div>
-        <div class="comp-tag ${cpCls[d.competencia?.tiendas]||'mid'}">${d.competencia?.tiendas||'—'}</div>
-      </div>
-      <div style="margin-top:14px;padding:12px 16px;background:#F0FFF4;border-radius:10px;font-size:13px;border-left:3px solid var(--green)">
-        <b>🚪 Oportunidad:</b> ${d.competencia?.oportunidad||'—'}
+
+      <!-- OPORTUNIDAD -->
+      <div style="margin-top:14px;padding:14px 16px;background:${(d.competencia?.canales_alta>=2)?'#FEF2F2':'#F0FFF4'};border-radius:10px;font-size:13px;border-left:3px solid ${(d.competencia?.canales_alta>=2)?'var(--red)':'var(--green)'}">
+        <b>${(d.competencia?.canales_alta>=2)?'⚠️ Evaluación:':'🚪 Oportunidad:'}</b> ${d.competencia?.oportunidad||'—'}
       </div>
     </div>
   </div>
